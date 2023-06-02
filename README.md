@@ -20,8 +20,9 @@ The following devices are planned to be supported. I am open to adding any devic
 |RAM|Planned|Planned||
 |CD|Planned|Planned||
 |Action Replay Cartridge|*Partially Implemented|Planned||
-|Satiator ODE|Planned|Planned||
-|MODE ODE|Planned|Planned||
+|Satiator ODE|Planned|Planned|Current code is not MIT|
+|MODE ODE|Planned|Planned|Current code is not MIT|
+|Fenrir ODE|Planned|Planned|Need library from developer|
 
 ## Shim Layer ##
 
@@ -34,9 +35,9 @@ For the shim layer I'm envisioning replacing the BUP library pointer at 0x060003
 libslinga makes use of Doxygen. Run "doxygen Doxyfile" to build the documentation. 
 
 ## Demos ##
-The demos are built with Jo Engine. See [Samples dir](samples/).
+The demos are built with Jo Engine. See [Samples](samples/) dir.
 
-## Credits## 
+## Credits ## 
 - Knight0fDragon - advice
 - Antime - advice
 - Cafe-Alpha - BUP file format
