@@ -9,6 +9,9 @@
 
 #ifdef INCLUDE_ACTION_REPLAY
 
+
+DEVICE_HANDLER g_ActionReplay_Handler = {0};
+
 // utility functions
 
 SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_size, unsigned char **dest, unsigned int* dest_size);
@@ -19,6 +22,48 @@ SLINGA_ERROR decompress_RLE01(unsigned char rle_key, const unsigned char *src, u
 int calcRLEKey(unsigned char* src, unsigned int size, unsigned char* key);
 int compressRLE01(unsigned char rleKey, unsigned char *src, unsigned int srcSize, unsigned char *dest, unsigned int* bytesNeeded);
 */
+
+SLINGA_ERROR ActionReplay_RegisterHandler(DEVICE_TYPE device_type, PDEVICE_HANDLER* device_handler)
+{
+    if(device_type != DEVICE_ACTION_REPLAY)
+    {
+        return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
+    if(!device_handler)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    g_ActionReplay_Handler.init = ActionReplay_Init;
+    g_ActionReplay_Handler.fini = ActionReplay_Fini;
+    g_ActionReplay_Handler.get_device_name = ActionReplay_GetDeviceName;
+    g_ActionReplay_Handler.is_present = ActionReplay_IsPresent;
+    g_ActionReplay_Handler.is_readable = ActionReplay_IsReadable;
+    g_ActionReplay_Handler.is_writeable = ActionReplay_IsWriteable;
+    g_ActionReplay_Handler.stat = ActionReplay_Stat;
+    g_ActionReplay_Handler.query_file = ActionReplay_QueryFile;
+    //g_ActionReplay_Handler.list = ActionReplay_List;
+    //g_ActionReplay_Handler.read = ActionReplay_Read;
+    g_ActionReplay_Handler.write = ActionReplay_Write;
+    g_ActionReplay_Handler.delete = ActionReplay_Delete;
+    g_ActionReplay_Handler.format = ActionReplay_Format;
+
+    *device_handler = &g_ActionReplay_Handler;
+
+
+    return SLINGA_SUCCESS;
+}
+
+SLINGA_ERROR ActionReplay_Init(DEVICE_TYPE device_type)
+{
+    return SLINGA_SUCCESS;
+}
+
+SLINGA_ERROR ActionReplay_Fini(DEVICE_TYPE device_type)
+{
+    return SLINGA_SUCCESS;
+}
 
 SLINGA_ERROR ActionReplay_GetDeviceName(DEVICE_TYPE device_type, char** device_name)
 {
@@ -161,8 +206,13 @@ SLINGA_ERROR ActionReplay_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
     return SLINGA_SUCCESS;
 }
 
+SLINGA_ERROR ActionReplay_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* filename, PSAVE_METADATA save)
+{
 
-SLINGA_ERROR ActionReplay_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, unsigned char* buffer, unsigned int size)
+    return -1;
+}
+
+SLINGA_ERROR ActionReplay_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size)
 {
     if(device_type != DEVICE_ACTION_REPLAY)
     {
@@ -174,7 +224,7 @@ SLINGA_ERROR ActionReplay_Write(DEVICE_TYPE device_type, FLAGS flags, const char
     return SLINGA_NOT_SUPPORTED;
 }
 
-SLINGA_ERROR ActionReplay_Delete(DEVICE_TYPE device_type, const char* filename)
+SLINGA_ERROR ActionReplay_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* filename)
 {
     if(device_type != DEVICE_ACTION_REPLAY)
     {

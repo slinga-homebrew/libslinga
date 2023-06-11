@@ -21,7 +21,7 @@ typedef enum
     // Special cartridges
     DEVICE_ACTION_REPLAY = 5,  ///< @brief Action Replay cartridge
 
-    // ODES
+    // ODEs
     DEVICE_SATIATIOR = 6,      ///< @brief SATIATOR ODE
     DEVICE_MODE = 7,           ///< @brief MODE ODE
 

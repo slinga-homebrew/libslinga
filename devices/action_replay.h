@@ -38,19 +38,26 @@ typedef struct _RLE01_HEADER
 }RLE01_HEADER, *PRLE01_HEADER;
 #pragma pack()
 
-SLINGA_ERROR ActionReplay_GetDeviceName(DEVICE_TYPE, char** device_name);
+SLINGA_ERROR ActionReplay_RegisterHandler(DEVICE_TYPE type, PDEVICE_HANDLER* device_handler);
+SLINGA_ERROR ActionReplay_Init(DEVICE_TYPE device_type);
+SLINGA_ERROR ActionReplay_Fini(DEVICE_TYPE device_type);
+
+SLINGA_ERROR ActionReplay_GetDeviceName(DEVICE_TYPE type, char** device_name);
 SLINGA_ERROR ActionReplay_IsPresent(DEVICE_TYPE type);
 SLINGA_ERROR ActionReplay_IsReadable(DEVICE_TYPE type);
 SLINGA_ERROR ActionReplay_IsWriteable(DEVICE_TYPE type);
+
 SLINGA_ERROR ActionReplay_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat);
+SLINGA_ERROR ActionReplay_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* filename, PSAVE_METADATA save);
+
 
 /*
 SLINGA_ERROR ActionReplay_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA saves, unsigned int num_saves, unsigned int* saves_found);
 SLINGA_ERROR ActionReplay_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size, unsigned int* bytes_read);
 */
 
-SLINGA_ERROR ActionReplay_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, unsigned char* buffer, unsigned int size);
-SLINGA_ERROR ActionReplay_Delete(DEVICE_TYPE device_type, const char* filename);
+SLINGA_ERROR ActionReplay_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size);
+SLINGA_ERROR ActionReplay_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* filename);
 SLINGA_ERROR ActionReplay_Format(DEVICE_TYPE device_type);
 
 #endif

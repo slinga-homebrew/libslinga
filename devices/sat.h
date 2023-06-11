@@ -81,6 +81,13 @@ int readSATFromBlock(unsigned char* partitionBuf, unsigned int partitionSize, un
 int getSATSave(unsigned char* partitionBuffer, unsigned int partitionSize, unsigned int blockSize, PSAT_BLOCK satTable, unsigned char* saveData, unsigned int saveSize);
 */
 SLINGA_ERROR calc_num_blocks(unsigned int save_size, unsigned int block_size, unsigned int* num_save_blocks);
+
+SLINGA_ERROR sat_get_used_blocks(const unsigned char* partition_buf,
+                                 unsigned int partition_size,
+                                 unsigned int block_size,
+                                 unsigned char skip_bytes,
+                                 unsigned int* used_blocks);
+
 SLINGA_ERROR sat_list_saves(const unsigned char* partition_buf,
                             unsigned int partition_size,
                             unsigned int block_size,
