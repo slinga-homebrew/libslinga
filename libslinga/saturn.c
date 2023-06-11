@@ -7,10 +7,9 @@
 #include "saturn.h"
 
 /**
- * @brief Convert backup date to backup timestamp (seconds since 1980)
+ * @brief Check what type of cartridge is connected
  *
- * @param[in] date - filled out backup_date structure containing date to convert
- * @param[out] timestamp - seconds since 1980 on success. This is the value used by the BUP header and saves
+ * @param[out] cart_type - a cartridge in the SATURN_CARTRIDGE_TYPE enum on success
  *
  * @return SLINGA_SUCCESS on success
  */
@@ -33,10 +32,9 @@ SLINGA_ERROR get_cartridge_type(SATURN_CARTRIDGE_TYPE* cart_type)
     {
         case CARTRIDGE_RAM_1MB:
         case CARTRIDGE_RAM_4MB:
-            // we know about this cartridge types
+            // we know about this cartridge type
             return SLINGA_SUCCESS;
         
-
         default:
             // none-zero but we don't know what it is
             *cart_type = CARTRIDGE_UNKNOWN;
