@@ -114,28 +114,54 @@ extern LIBSLINGA_CONTEXT g_Context;
 // libslinga API
 SLINGA_ERROR Slinga_Init(void);
 SLINGA_ERROR Slinga_Fini(void);
-
 SLINGA_ERROR Slinga_GetVersion(unsigned char* major, unsigned char* minor, unsigned char* patch);
-SLINGA_ERROR Slinga_GetDeviceName(DEVICE_TYPE device_type, char** device_name);
 
+SLINGA_ERROR Slinga_GetDeviceName(DEVICE_TYPE device_type, char** device_name);
 SLINGA_ERROR Slinga_IsPresent(DEVICE_TYPE device_type);
 SLINGA_ERROR Slinga_IsReadable(DEVICE_TYPE device_type);
 SLINGA_ERROR Slinga_IsWriteable(DEVICE_TYPE device_type);
 
+SLINGA_ERROR Slinga_SetSaveMetadata(PSAVE_METADATA save_metadata, const char* filename, const char* name, const char* comment, SLINGA_LANGUAGE language, unsigned int timestamp, unsigned int data_size);
 SLINGA_ERROR Slinga_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat);
 SLINGA_ERROR Slinga_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA saves, unsigned int num_saves, unsigned int* saves_found);
-SLINGA_ERROR Slinga_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size, unsigned int* bytes_read);
+SLINGA_ERROR Slinga_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* filename, PSAVE_METADATA save);
 
-SLINGA_ERROR Slinga_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, unsigned char* buffer, unsigned int size);
-SLINGA_ERROR Slinga_Delete(DEVICE_TYPE device_type, const char* filename);
+SLINGA_ERROR Slinga_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filename, unsigned char* buffer, unsigned int size, unsigned int* bytes_read);
+SLINGA_ERROR Slinga_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size);
+SLINGA_ERROR Slinga_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* filename);
 SLINGA_ERROR Slinga_Format(DEVICE_TYPE device_type);
 
-SLINGA_ERROR Slinga_SetSaveMetadata(PSAVE_METADATA save_metadata,
-                                    const char* filename,
-                                    const char* name,
-                                    const char* comment,
-                                    SLINGA_LANGUAGE language,
-                                    unsigned int timestamp,
-                                    unsigned int data_size);
-
 // TODO install shim to shim.c
+typedef SLINGA_ERROR (*DEVICE_INIT)(DEVICE_TYPE);
+typedef SLINGA_ERROR (*DEVICE_FINI)(DEVICE_TYPE);
+typedef SLINGA_ERROR (*DEVICE_GET_DEVICE_NAME)(DEVICE_TYPE, char**);
+typedef SLINGA_ERROR (*DEVICE_IS_PRESENT)(DEVICE_TYPE);
+typedef SLINGA_ERROR (*DEVICE_IS_READABLE)(DEVICE_TYPE);
+typedef SLINGA_ERROR (*DEVICE_IS_WRITEABLE)(DEVICE_TYPE);
+typedef SLINGA_ERROR (*DEVICE_STAT)(DEVICE_TYPE, PBACKUP_STAT);
+typedef SLINGA_ERROR (*DEVICE_LIST)(DEVICE_TYPE, FLAGS, PSAVE_METADATA, unsigned int, unsigned int*);
+typedef SLINGA_ERROR (*DEVICE_QUERY_FILE)(DEVICE_TYPE, FLAGS, const char*, PSAVE_METADATA);
+typedef SLINGA_ERROR (*DEVICE_READ)(DEVICE_TYPE, FLAGS, const char*, unsigned char*, unsigned int, unsigned int*);
+typedef SLINGA_ERROR (*DEVICE_WRITE)(DEVICE_TYPE, FLAGS, const char*, const unsigned char*, unsigned int);
+typedef SLINGA_ERROR (*DEVICE_DELETE)(DEVICE_TYPE, FLAGS, const char*);
+typedef SLINGA_ERROR (*DEVICE_FORMAT)(DEVICE_TYPE);
+
+typedef struct _DEVICE_HANDLER
+{
+    DEVICE_INIT init;
+    DEVICE_FINI fini;
+    DEVICE_GET_DEVICE_NAME get_device_name;
+    DEVICE_IS_PRESENT is_present;
+    DEVICE_IS_READABLE is_readable;
+    DEVICE_IS_WRITEABLE is_writeable;
+    DEVICE_STAT stat;
+    DEVICE_LIST list;
+    DEVICE_QUERY_FILE query_file;
+    DEVICE_READ read;
+    DEVICE_WRITE write;
+    DEVICE_DELETE delete;
+    DEVICE_FORMAT format;
+} DEVICE_HANDLER, *PDEVICE_HANDLER;
+
+#define UNUSED(x) (void)x;
+
