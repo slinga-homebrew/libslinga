@@ -7,7 +7,6 @@
 #include "../libslinga.h"
 #include "../devices/ram.h"
 #include "../devices/action_replay.h"
-#include <jo/jo.h>
 
 PDEVICE_HANDLER g_Device_Handlers[MAX_DEVICE_TYPE] = {0};
 

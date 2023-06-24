@@ -31,56 +31,53 @@
 // - following the block ids is the save data itself
 //
 
-#define SAT_PARTITION_SIZE      0x40 // BUGBUG: this should be dynamic
-
 #define SAT_MAX_SAVE_NAME       11
 #define SAT_MAX_SAVE_COMMENT    10
 
 #define SAT_START_BLOCK_TAG     0x80000000 // beginning of a save must start with this
 #define SAT_CONTINUE_BLOCK_TAG  0x0        // all other blocks have a 0 tag
 
-
 #define SAT_TAG_SIZE sizeof(((SAT_START_BLOCK_HEADER *)0)->tag)
-
-// BUGBUG: get rid of this
-#define SAT_BLOCK_USABLE_SIZE 0x40 - 4
-#define SAT_BLOCK_HEADER_SIZE 0x1E
 
 // struct at the beginning of a save block
 #pragma pack(1)
 typedef struct _SAT_START_BLOCK_HEADER
 {
     unsigned int tag;
-    char saveName[SAT_MAX_SAVE_NAME]; // not necessarily NULL terminated
-    unsigned char language;
+    char savename[SAT_MAX_SAVE_NAME];   // not necessarily NULL terminated
+    unsigned char language;             // language of the save (LANGUAGE_JAPANESE (0) to LANGUAGE_ITALIAN (5))
     char comment[SAT_MAX_SAVE_COMMENT]; // not necessarily NULL terminated
-    unsigned int date;
-    unsigned int saveSize; // in bytes
+    unsigned int timestamp;             // seconds since 1/1/1980
+    unsigned int data_size;              // in bytes
 }SAT_START_BLOCK_HEADER, *PSAT_START_BLOCK_HEADER;
 #pragma pack()
 
-
-#define SAT_START_BLOCK_FLAG         0x1    // first block in the save. It contains SAT_START_BLOCK_HEADER followed by SAT table
-#define SAT_TABLE_BLOCK_FLAG         0x2    // block contains the variable lenght SAT table
-#define SAT_TABLE_END_BLOCK_FLAG     0x4    // block contains the end of the SAT table
-
-// represents a SAT block. Used to find data within a SAT partition
-typedef struct _SAT_BLOCK
-{
-    unsigned int blockNum;  // blockNum is the index into the partition. Multiply by block size
-    unsigned int flags;     // it's possible for a block to have multiple flags at once
-} SAT_BLOCK, *PSAT_BLOCK;
-
-
-// parsing functions
 /*
+g_SAT_bitmap[] is a large bitmap used to store free\busy blocks
+each bitmap represents a single block
 
-int getSaveStartBlock(unsigned char* partitionBuf, unsigned int partitionSize, unsigned int blockSize, char* saveName, PSAT_START_BLOCK_HEADER* metadata);
-int getSATBlocks(unsigned char* partitionBuf, unsigned int partitionSize, unsigned int blockSize, PSAT_START_BLOCK_HEADER metadata, PSAT_BLOCK* satBlocks);
-int readSATFromBlock(unsigned char* partitionBuf, unsigned int partitionSize, unsigned int blockSize, unsigned int currBlock, PSAT_BLOCK satBlocks, unsigned int maxBlocks, unsigned int* numBocks);
-int getSATSave(unsigned char* partitionBuffer, unsigned int partitionSize, unsigned int blockSize, PSAT_BLOCK satTable, unsigned char* saveData, unsigned int saveSize);
+Internal memory
+- 0x8000 parition size
+- 0x40 block size
+- bytes needed = 0x8000 / 0x40 / 8 (bits per byte) = 0x40 (64) bytes
+
+32 Mb Cartridge
+- 0x400000 partition size
+- 0x400 block size
+- bytes needed - 0x400000 / 0x400 / 8 (bits per byte_ = 0x200 (512) bytes
+
+Action Replay
+- 0x80000 partition size
+- 0x40 block size
+- bytes needed = 0x80000 / 0x40 / 8 (bits per byte) = 0x400 (1024) bytes
+
+This means we need a 1024 byte buffer to support the Action Replay
 */
-SLINGA_ERROR calc_num_blocks(unsigned int save_size, unsigned int block_size, unsigned int* num_save_blocks);
+#define MIN_BLOCK_SIZE (64)
+#define INTERNAL_MAX_BLOCKS (512)
+#define CARTRIDGE_MAX_BLOCKS (4096) // 32 Mb Cartridge
+#define ACTION_REPLAY_MAX_BLOCKS (8192)
+#define SAT_MAX_BITMAP (ACTION_REPLAY_MAX_BLOCKS / 8) // Each bit represents a block
 
 SLINGA_ERROR sat_get_used_blocks(const unsigned char* partition_buf,
                                  unsigned int partition_size,
@@ -95,12 +92,19 @@ SLINGA_ERROR sat_list_saves(const unsigned char* partition_buf,
                             PSAVE_METADATA saves,
                             unsigned int num_saves,
                             unsigned int* saves_available);
-SLINGA_ERROR sat_walk_partition(const unsigned char* partition_buf,
-                                unsigned int partition_size,
-                                unsigned int block_size,
-                                unsigned char skip_bytes,
-                                PSAVE_METADATA saves,
-                                unsigned int num_saves,
-                                unsigned int* saves_found,
-                                unsigned int* used_blocks);
 
+SLINGA_ERROR sat_query_file(const char* filename,
+                            const unsigned char* partition_buf,
+                            unsigned int partition_size,
+                            unsigned int block_size,
+                            unsigned char skip_bytes,
+                            PSAVE_METADATA metadata);
+
+SLINGA_ERROR sat_read_save(const char* filename,
+                           unsigned char* buffer,
+                           unsigned int size,
+                           unsigned int* bytes_read,
+                           const unsigned char* partition_buf,
+                           unsigned int partition_size,
+                           unsigned int block_size,
+                           unsigned char skip_bytes);

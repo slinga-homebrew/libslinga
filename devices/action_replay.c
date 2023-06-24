@@ -43,25 +43,34 @@ SLINGA_ERROR ActionReplay_RegisterHandler(DEVICE_TYPE device_type, PDEVICE_HANDL
     g_ActionReplay_Handler.is_writeable = ActionReplay_IsWriteable;
     g_ActionReplay_Handler.stat = ActionReplay_Stat;
     g_ActionReplay_Handler.query_file = ActionReplay_QueryFile;
-    //g_ActionReplay_Handler.list = ActionReplay_List;
-    //g_ActionReplay_Handler.read = ActionReplay_Read;
+    g_ActionReplay_Handler.list = ActionReplay_List;
+    g_ActionReplay_Handler.read = ActionReplay_Read;
     g_ActionReplay_Handler.write = ActionReplay_Write;
     g_ActionReplay_Handler.delete = ActionReplay_Delete;
     g_ActionReplay_Handler.format = ActionReplay_Format;
 
     *device_handler = &g_ActionReplay_Handler;
 
-
     return SLINGA_SUCCESS;
 }
 
 SLINGA_ERROR ActionReplay_Init(DEVICE_TYPE device_type)
 {
+    if(device_type != DEVICE_ACTION_REPLAY)
+    {
+        return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
     return SLINGA_SUCCESS;
 }
 
 SLINGA_ERROR ActionReplay_Fini(DEVICE_TYPE device_type)
 {
+    if(device_type != DEVICE_ACTION_REPLAY)
+    {
+        return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
     return SLINGA_SUCCESS;
 }
 
@@ -77,7 +86,7 @@ SLINGA_ERROR ActionReplay_GetDeviceName(DEVICE_TYPE device_type, char** device_n
         return SLINGA_INVALID_PARAMETER;
     }
 
-    *device_name = "Action Replay (Read-Only)";
+    *device_name = "Action Replay Plus (Read-Only)";
 
     return SLINGA_SUCCESS;
 }
@@ -153,10 +162,10 @@ SLINGA_ERROR ActionReplay_IsWriteable(DEVICE_TYPE device_type)
 
 SLINGA_ERROR ActionReplay_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
 {
-    SLINGA_ERROR result = 0;
     unsigned char* partition_buf = NULL;
     unsigned int partition_size = 0;
     unsigned int used_blocks = 0;
+    SLINGA_ERROR result = 0;
 
     if(device_type != DEVICE_ACTION_REPLAY)
     {
@@ -208,12 +217,139 @@ SLINGA_ERROR ActionReplay_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
 
 SLINGA_ERROR ActionReplay_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* filename, PSAVE_METADATA save)
 {
+    unsigned char* partition_buf = NULL;
+    unsigned int partition_size = 0;
+    SLINGA_ERROR result = 0;
 
-    return -1;
+    UNUSED(flags);
+
+    if(device_type != DEVICE_ACTION_REPLAY)
+    {
+        return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
+    if(!save)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // decompress the save partition
+    result = decompress_partition((const unsigned char*)(CARTRIDGE_MEMORY + ACTION_REPLAY_SAVES_OFFSET),
+                                  ACTION_REPLAY_COMPRESSED_PARTITION_MAX_SIZE,
+                                  &partition_buf,
+                                  &partition_size);
+    if(result != SLINGA_SUCCESS)
+    {
+        // failed to decompress
+        return result;
+    }
+
+    result = sat_query_file(filename,
+                            partition_buf,
+                           partition_size,
+                           ACTION_REPLAY_BLOCK_SIZE,
+                           0,
+                           save);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    return SLINGA_SUCCESS;
+}
+
+SLINGA_ERROR ActionReplay_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA saves, unsigned int num_saves, unsigned int* saves_found)
+{
+    unsigned char* partition_buf = NULL;
+    unsigned int partition_size = 0;
+    SLINGA_ERROR result = 0;
+
+    UNUSED(flags);
+
+    if(device_type != DEVICE_ACTION_REPLAY)
+    {
+        return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
+    // decompress the save partition
+    result = decompress_partition((const unsigned char*)(CARTRIDGE_MEMORY + ACTION_REPLAY_SAVES_OFFSET),
+                                  ACTION_REPLAY_COMPRESSED_PARTITION_MAX_SIZE,
+                                  &partition_buf,
+                                  &partition_size);
+    if(result != SLINGA_SUCCESS)
+    {
+        // failed to decompress
+        return result;
+    }
+
+    result = sat_list_saves(partition_buf,
+                            partition_size,
+                            ACTION_REPLAY_BLOCK_SIZE,
+                            0,
+                            saves,
+                            num_saves,
+                            saves_found);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    return SLINGA_SUCCESS;
+}
+
+
+SLINGA_ERROR ActionReplay_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filename, unsigned char* buffer, unsigned int size, unsigned int* bytes_read)
+{
+    unsigned char* partition_buf = NULL;
+    unsigned int partition_size = 0;
+    SLINGA_ERROR result = 0;
+
+    UNUSED(flags);
+
+    if(device_type != DEVICE_ACTION_REPLAY)
+    {
+        return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
+    if(!filename || !buffer || !size)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // decompress the save partition
+    result = decompress_partition((const unsigned char*)(CARTRIDGE_MEMORY + ACTION_REPLAY_SAVES_OFFSET),
+                                  ACTION_REPLAY_COMPRESSED_PARTITION_MAX_SIZE,
+                                  &partition_buf,
+                                  &partition_size);
+    if(result != SLINGA_SUCCESS)
+    {
+        // failed to decompress
+        return result;
+    }
+
+    result = sat_read_save(filename,
+                           buffer,
+                           size,
+                           bytes_read,
+                           partition_buf,
+                           partition_size,
+                           ACTION_REPLAY_BLOCK_SIZE,
+                           0);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    return SLINGA_SUCCESS;
 }
 
 SLINGA_ERROR ActionReplay_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size)
 {
+    UNUSED(flags);
+    UNUSED(filename);
+    UNUSED(buffer);
+    UNUSED(size);
+
     if(device_type != DEVICE_ACTION_REPLAY)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
@@ -226,6 +362,9 @@ SLINGA_ERROR ActionReplay_Write(DEVICE_TYPE device_type, FLAGS flags, const char
 
 SLINGA_ERROR ActionReplay_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* filename)
 {
+    UNUSED(flags);
+    UNUSED(filename);
+
     if(device_type != DEVICE_ACTION_REPLAY)
     {
         return SLINGA_INVALID_DEVICE_TYPE;

@@ -42,11 +42,21 @@ SLINGA_ERROR RAM_RegisterHandler(DEVICE_TYPE device_type, PDEVICE_HANDLER* devic
 
 SLINGA_ERROR RAM_Init(DEVICE_TYPE device_type)
 {
+    if(device_type != DEVICE_RAM)
+    {
+        return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
     return SLINGA_SUCCESS;
 }
 
 SLINGA_ERROR RAM_Fini(DEVICE_TYPE device_type)
 {
+    if(device_type != DEVICE_RAM)
+    {
+        return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
     return SLINGA_SUCCESS;
 }
 
@@ -107,10 +117,7 @@ SLINGA_ERROR RAM_IsWriteable(DEVICE_TYPE device_type)
 
 SLINGA_ERROR RAM_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
 {
-    SLINGA_ERROR result = 0;
-    unsigned char* partition_buf = NULL;
-    unsigned int partition_size = 0;
-    unsigned int used_blocks = 0;
+    UNUSED(stat);
 
     if(device_type != DEVICE_RAM)
     {
@@ -126,6 +133,11 @@ SLINGA_ERROR RAM_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
 
 SLINGA_ERROR RAM_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA saves, unsigned int num_saves, unsigned int* saves_found)
 {
+    UNUSED(flags);
+    UNUSED(saves);
+    UNUSED(num_saves);
+    UNUSED(saves_found);
+
     if(device_type != DEVICE_RAM)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
@@ -140,26 +152,40 @@ SLINGA_ERROR RAM_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA saves
 
 SLINGA_ERROR RAM_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filename, unsigned char* buffer, unsigned int size, unsigned int* bytes_read)
 {
+    UNUSED(flags);
+    UNUSED(filename);
+    UNUSED(buffer);
+    UNUSED(size);
+    UNUSED(bytes_read);
+
     if(device_type != DEVICE_RAM)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
     }
 
-    return SLINGA_SUCCESS;
+    return SLINGA_NOT_IMPLEMENTED;
 }
 
 SLINGA_ERROR RAM_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size)
 {
+    UNUSED(flags);
+    UNUSED(filename);
+    UNUSED(buffer);
+    UNUSED(size);
+
     if(device_type != DEVICE_RAM)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
     }
 
-    return SLINGA_SUCCESS;
+    return SLINGA_NOT_IMPLEMENTED;
 }
 
 SLINGA_ERROR RAM_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* filename)
 {
+    UNUSED(flags);
+    UNUSED(filename);
+
     if(device_type != DEVICE_RAM)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
