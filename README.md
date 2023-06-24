@@ -6,23 +6,24 @@ Sega Saturn library for reading\writing save game files. The goals are:
 - work on real hardware
 - support as many backup devices as possible (internal memory, cartridge, floppy, ODEs, etc)
 - provide a shim layer for replacing Sega's BUP library
-- MIT license for easy integration with Jo Engine, YAUL, and/or any other Saturn frameworks. ODE menus could also easily use this library
+- MIT license for easy integration with Jo Engine, YAUL, and/or any other Saturn frameworks. MIT licensing will allow commercial products (such as ODE menus) to use the library as well 
 
 ## Supported Devices ##
 
-The following devices are planned to be supported. I am open to adding any device as long as the code is MIT. 
+The following devices are planned to be supported. I am open to adding any device as long as the code contributed to libslinga is MIT. 
 
 |Device|Read Support|Write Support|Notes|
-|---|:---:|---|---|
+|---|:---:|:---:|---|
 |Internal Memory|Planned|Planned||
 |Cartridge Memory|Planned|Planned||
 |Serial Link|Planned|Planned||
-|RAM|Planned|Planned||
+|RAM|Partially Implemented|Partially Implemented|Helper device used to read\dump memory for Save Game Copier. Not the same as Internal\Cartridge memory|
 |CD|Planned|Planned||
-|Action Replay Cartridge|*Partially Implemented|Planned||
+|Action Replay Plus Cartridge|&#x2718;|| Read only support checked in. Requires Action Replay Plus (with 1 and/or 4MB RAM expansion). Write support seems really hard so no plan at the moment...|
 |Satiator ODE|Planned|Planned|Current code is not MIT|
 |MODE ODE|Planned|Planned|Current code is not MIT|
 |Fenrir ODE|Planned|Planned|Need library from developer|
+|Phoebe/Rhea ODE|||Phoebe/Rhea do not currently support writing to the SD card AFAIK. Need support from developer|
 
 ## Shim Layer ##
 
@@ -44,4 +45,3 @@ The demos are built with Jo Engine. See [Samples](samples/) dir.
 - Previous research: https://segaxtreme.net/threads/decompilation-of-backup-library.25353/
 - Professor Abrassive - Satiator lib
 - Jo Engine - used to build the examples
-
