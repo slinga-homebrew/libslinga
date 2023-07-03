@@ -46,7 +46,17 @@ typedef enum
     SLINGA_INVALID_PARAMETER,           ///< @brief Invalid argument provided
     SLINGA_FILE_EXISTS,                 ///< @brief File already exists
     SLINGA_UNKNOWN_CARTRIDGE,           ///< @brief Unknown cartridge type found
+    SLINGA_NOT_IMPLEMENTED,             ///< @brief Not supported yet
+    SLINGA_NOT_FOUND,                   ///< @brief Save not found
+    SLINGA_MORE_DATA_AVAILABLE,         ///< @brief Not a failure, but more data available to read
 
+    SLINGA_SAT_SAVE_OUT_OF_RANGE,       ///< @brief Save doesn't fit in the SAT bitmap
+    SLINGA_SAT_INVALID_PARTITION,       ///< @brief Something with the SAT partition is wrong
+    SLINGA_SAT_TOO_MANY_BLOCKS,         ///< @brief Too many blocks on the SAT paritition
+    SLINGA_SAT_BLOCKS_OUT_OF_ORDER,     ///< @brief SAT block entries are out of order
+    SLINGA_SAT_INVALID_SIZE,            ///< @brief Bad copy size
+    SLINGA_SAT_INVALID_READ_SIZE,       ///< @brief Bad read size
+    SLINGA_SAT_INVALID_TAG,             ///< @brief Bad SAT block tag
 
     SLINGA_ACTION_REPLAY_UNSUPPORTED_COMPRESSION,     ///< @brief Action Replay: Unknown compression algorithm
     SLINGA_ACTION_REPLAY_CORRUPT_COMPRESSION_HEADER,  ///< @brief Action Replay: Compression header is corrupt

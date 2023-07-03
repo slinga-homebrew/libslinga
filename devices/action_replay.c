@@ -14,8 +14,8 @@ DEVICE_HANDLER g_ActionReplay_Handler = {0};
 
 // utility functions
 
-SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_size, unsigned char **dest, unsigned int* dest_size);
-SLINGA_ERROR decompress_RLE01(unsigned char rle_key, const unsigned char *src, unsigned int src_size, unsigned char *dest, unsigned int* bytes_needed);
+static SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_size, unsigned char **dest, unsigned int* dest_size);
+static SLINGA_ERROR decompress_RLE01(unsigned char rle_key, const unsigned char *src, unsigned int src_size, unsigned char *dest, unsigned int* bytes_needed);
 
 /*
 // for writing not implemented yet
@@ -395,7 +395,7 @@ SLINGA_ERROR ActionReplay_Format(DEVICE_TYPE device_type)
 // On success dest contains the uncompressed buffer of destSize bytes
 // Caller must free dest on success
 // returns 0 on success, non-zero on failure
-SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_size, unsigned char **dest, unsigned int* dest_size)
+static SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_size, unsigned char **dest, unsigned int* dest_size)
 {
     PRLE01_HEADER header = NULL;
     int result = 0;
@@ -456,7 +456,7 @@ SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_siz
 // Decompresses RLE01 compressed buffer into dest
 // To calculate number of bytes needed, set dest to NULL
 // This function was reversed from function 0x002897dc in ARP_202C.BIN
-SLINGA_ERROR decompress_RLE01(unsigned char rle_key, const unsigned char *src, unsigned int src_size, unsigned char *dest, unsigned int* bytes_needed)
+static SLINGA_ERROR decompress_RLE01(unsigned char rle_key, const unsigned char *src, unsigned int src_size, unsigned char *dest, unsigned int* bytes_needed)
 {
     unsigned int i = 0;
     unsigned int j = 0;

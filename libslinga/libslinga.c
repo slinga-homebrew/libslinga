@@ -5,6 +5,8 @@
  *  @bug No known bugs.
  */
 #include "../libslinga.h"
+
+#include "../devices/saturn.h"
 #include "../devices/ram.h"
 #include "../devices/action_replay.h"
 
@@ -34,12 +36,16 @@ SLINGA_ERROR Slinga_Init(void)
         // TODO: call init here as well?
         switch(device_type)
         {
-            /*
-            case INTERNAL:
-            case CARTRIDGE:
-            case SERIAL:
-                return SLINGA_DEVICE_TYPE_NOT_COMPILED_IN;
-            */
+    #ifdef INCLUDE_INTERNAL
+            case DEVICE_INTERNAL:
+                Saturn_RegisterHandler(device_type, &g_Device_Handlers[device_type]);
+                break;
+    #endif
+    #ifdef INCLUDE_CARTRIDGE
+            case DEVICE_CARTRIDGE:
+                Saturn_RegisterHandler(device_type, &g_Device_Handlers[device_type]);
+                break;
+    #endif
     #ifdef INCLUDE_RAM
             case DEVICE_RAM:
                 RAM_RegisterHandler(device_type, &g_Device_Handlers[device_type]);
