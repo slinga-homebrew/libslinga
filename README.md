@@ -14,15 +14,15 @@ The following devices are planned to be supported. I am open to adding any devic
 
 |Device|Read Support|Write Support|Notes|
 |---|:---:|:---:|---|
-|Internal Memory|Planned|Planned||
-|Cartridge Memory|Planned|Planned||
-|Serial Link|Planned|Planned||
+|Internal Memory|&#x2718;|||
+|Cartridge Memory||||
+|Serial Link||||
 |RAM|Partially Implemented|Partially Implemented|Helper device used to read\dump memory for Save Game Copier. Not the same as Internal\Cartridge memory|
-|CD|Planned|Planned||
+|CD||||
 |Action Replay Plus Cartridge|&#x2718;|| Read only support checked in. Requires Action Replay Plus (with 1 and/or 4MB RAM expansion). Write support seems really hard so no plan at the moment...|
-|Satiator ODE|Planned|Planned|Current code is not MIT|
-|MODE ODE|Planned|Planned|Current code is not MIT|
-|Fenrir ODE|Planned|Planned|Need library from developer|
+|Satiator ODE|||Current code is not MIT|
+|MODE ODE|||Current code is not MIT|
+|Fenrir ODE|||Need library from developer|
 |Phoebe/Rhea ODE|||Phoebe/Rhea do not currently support writing to the SD card AFAIK. Need support from developer|
 
 ## Shim Layer ##
