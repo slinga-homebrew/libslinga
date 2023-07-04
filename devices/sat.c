@@ -8,13 +8,56 @@
 
 #include <stdio.h>
 
+//
+// Saturn saves are stored in 128-byte blocks (every other byte is valid, see skip_bytes)
+// - the first 4 bytes of each block is a tag
+// -- 0x80000000 = start of new save
+// -- 0x00000000 = continuation block?
+// - the next 30 bytes are metadata (SAT_START_BLOCK_HEADER) for the save (save name, language, comment, date, and size)
+// -- the size is the size of the save data not counting the metadata
+// - next is a variable array of 2-byte block ids. This array ends when 00 00 is encountered
+// -- the block id for the 1st block (the one containing the metadata) is not present. In this case only 00 00 will be present
+// -- the variable length array can be 0-512 elements (assuming max save is on the order of ~32k)
+// -- to complicate matters, the block ids themselves can extend into multiple blocks. This makes computing the block count tricky
+// -- we basically have to parse the save while we are also simultaneously figuring how many blocks we need to parse
+// - following the block ids is the save data itself
+// - this format is basically the same for cartridges (different sizes, addresses, block sizes, etc) and Action Replay (saves are compressed with RLE)
+//
+
+//
+// skip_bytes - I use this to handle the fact that for internal memory only every other byte of memory is valid. If skip_bytes = 0, every byte is used
+// if skip_bytes = 1, every other byte is read.
+//
+
+//
+// g_SAT_bitmap[] is a large bitmap used to store free\busy blocks
+// each bitmap represents a single block
+//
+// Internal memory
+// - 0x8000 parition size
+// - 0x40 block size
+// - bytes needed = 0x8000 / 0x40 / 8 (bits per byte) = 0x40 (64) bytes
+//
+// 32 Mb Cartridge
+// - 0x400000 partition size
+// - 0x400 block size
+// - bytes needed - 0x400000 / 0x400 / 8 (bits per byte_ = 0x200 (512) bytes
+//
+// Action Replay
+// - 0x80000 partition size
+// - 0x40 block size
+// - bytes needed = 0x80000 / 0x40 / 8 (bits per byte) = 0x400 (1024) bytes
+//
+// This means we need a 1024 byte buffer to support the Action Replay
+//
+
 /** @brief Bitmap representing blocks in a partition. Each bit represents one block */
 unsigned char g_SAT_bitmap[SAT_MAX_BITMAP] = {0};
 
 // block helper functions
 static SLINGA_ERROR calc_num_blocks(unsigned int save_size, unsigned int block_size, unsigned int skip_bytes, unsigned int* num_save_blocks);
 static SLINGA_ERROR convert_address_to_block_index(const unsigned char* address, const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned int skip_bytes, unsigned int* block_index);
-static SLINGA_ERROR convert_block_index_to_address(unsigned int block_index, const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned int skip_bytes, unsigned char** address);
+static SLINGA_ERROR convert_block_index_to_address(unsigned int block_index, const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned int skip_bytes, const unsigned char** address);
 
 // parsing saves
 static SLINGA_ERROR copy_metadata(PSAVE_METADATA metadata, const unsigned char* save, unsigned int skip_bytes);
@@ -33,6 +76,8 @@ static SLINGA_ERROR get_next_block_bitmap(unsigned int block_index, const unsign
 
 // skip bytes
 static SLINGA_ERROR read_from_partition(unsigned char* dst, const unsigned char* src, unsigned int src_offset, unsigned int size, unsigned int skip_bytes);
+static SLINGA_ERROR write_to_partition(unsigned char* dst, unsigned int dst_offset, const unsigned char* src, unsigned int size, unsigned int skip_bytes);
+static SLINGA_ERROR memset_partition(unsigned char* dst, unsigned int dst_offset, unsigned char val, unsigned int size, unsigned int skip_bytes);
 
 //
 // Functions exposed to Internal, Cartridge, and Action Replay
@@ -162,6 +207,139 @@ SLINGA_ERROR sat_read_save(const char* filename,
                                   buffer,
                                   size,
                                   bytes_read);
+}
+
+/**
+ * @brief Returns success if the partition is currently formatted
+ *
+ * The first block must be filled with the string "BackUpRam Format"
+ *
+ * @param[in] partition_buf Start of the save partition
+ * @param[in] partition_size Size in bytes of the save partition
+ * @param[in] block_size How big the blocks are on the partition
+ * @param[in] skip_bytes How many bytes to skip between valid bytes. This is used by internal\cartridge only.
+ *
+ * @return SLINGA_SUCCESS on success
+ */
+SLINGA_ERROR sat_check_formatted(const unsigned char* partition_buf,
+                                 unsigned int partition_size,
+                                 unsigned int block_size,
+                                 unsigned char skip_bytes)
+{
+    char temp[BACKUP_RAM_FORMAT_STR_LEN] = {0};
+    unsigned int num_lines = 0;
+    SLINGA_ERROR result = 0;
+
+    if(!partition_buf || !partition_size || !block_size)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // block size must be 64-byte aligned
+    if((block_size % MIN_BLOCK_SIZE) != 0)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    if(skip_bytes != 0 && skip_bytes != 1)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // we need atleast 1 block
+    if(block_size > partition_size)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // the first block contains block_size/16 copies of the BACKUP_RAM_FORMAT string
+    num_lines = block_size / BACKUP_RAM_FORMAT_STR_LEN;
+
+    if(skip_bytes == 1)
+    {
+        num_lines = num_lines / 2;
+    }
+
+    for(unsigned int i = 0; i < num_lines; i++)
+    {
+        // copy the data locally to avoid having to deal with skip_bytes
+        result = read_from_partition((unsigned char*)temp, partition_buf, (i * BACKUP_RAM_FORMAT_STR_LEN), BACKUP_RAM_FORMAT_STR_LEN, skip_bytes);
+        if(result != SLINGA_SUCCESS)
+        {
+            return result;
+        }
+
+        result = memcmp(BACKUP_RAM_FORMAT_STR, temp, BACKUP_RAM_FORMAT_STR_LEN);
+        if(result != 0)
+        {
+            return SLINGA_SAT_UNFORMATTED;
+        }
+    }
+
+    return SLINGA_SUCCESS;
+}
+
+/**
+ * @brief Formats the partition. All saves will be lost.
+ *
+ * The first block will be filled with the string "BackUpRam Format"
+ *
+ * @param[in] partition_buf Start of the save partition
+ * @param[in] partition_size Size in bytes of the save partition
+ * @param[in] block_size How big the blocks are on the partition
+ * @param[in] skip_bytes How many bytes to skip between valid bytes. This is used by internal\cartridge only.
+ *
+ * @return SLINGA_SUCCESS on success
+ */
+SLINGA_ERROR sat_format(unsigned char* partition_buf,
+                        unsigned int partition_size,
+                        unsigned int block_size,
+                        unsigned char skip_bytes)
+{
+    unsigned int num_lines = 0;
+    SLINGA_ERROR result = 0;
+
+    if(!partition_buf || !partition_size || !block_size)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // block size must be 64-byte aligned
+    if((block_size % MIN_BLOCK_SIZE) != 0)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    if(skip_bytes != 0 && skip_bytes != 1)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // the first block contains block_size/16 copies of the BACKUP_RAM_FORMAT string
+    num_lines = block_size / BACKUP_RAM_FORMAT_STR_LEN;
+
+    if(skip_bytes == 1)
+    {
+        num_lines = num_lines / 2;
+    }
+
+    result = memset_partition(partition_buf, 0, 0, partition_size/2, skip_bytes);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    for(unsigned int i = 0; i < num_lines; i++)
+    {
+        // copy the data locally to avoid having to deal with skip_bytes
+        result = write_to_partition(partition_buf, (i * BACKUP_RAM_FORMAT_STR_LEN), (const unsigned char*)BACKUP_RAM_FORMAT_STR, BACKUP_RAM_FORMAT_STR_LEN, skip_bytes);
+        if(result != SLINGA_SUCCESS)
+        {
+            return result;
+        }
+    }
+
+    return SLINGA_SUCCESS;
 }
 
 //
@@ -307,7 +485,7 @@ static SLINGA_ERROR convert_block_index_to_address(unsigned int block_index,
                                                    unsigned int partition_size,
                                                    unsigned int block_size,
                                                    unsigned int skip_bytes,
-                                                   unsigned char** address)
+                                                   const unsigned char** address)
 {
     if(!address || !partition_buf || !partition_size || !block_size)
     {
@@ -832,16 +1010,30 @@ static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer,
 {
 
     unsigned int cur_sat_block = 0;
-    unsigned char* block = NULL;
+    const unsigned char* block = NULL;
     unsigned int bytes_written = 0;
-
-    // TODO;
-    unsigned int block_data_size = 60;
+    unsigned int block_data_size = 0;
     unsigned int bytes_to_copy = 0;
     SLINGA_ERROR result = 0;
 
     if(!buffer || !size || !start_block || !start_data_block || !bitmap || !bitmap_size || !partition_buf || !partition_size || !block_size)
     {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    if(skip_bytes == 0)
+    {
+        // all bytes are valid, just subtract off the tag size
+        block_data_size = block_size - SAT_TAG_SIZE;
+    }
+    else if(skip_bytes == 1)
+    {
+        // every other byte is valid
+        block_data_size = (block_size/2) - SAT_TAG_SIZE;
+    }
+    else
+    {
+        // invalid skip_bytes value
         return SLINGA_INVALID_PARAMETER;
     }
 
@@ -1006,7 +1198,7 @@ static SLINGA_ERROR read_sat_table_from_block(unsigned int block_index,
 {
     unsigned int start_byte = 0;
     SAT_START_BLOCK_HEADER save_start = {0};
-    unsigned char* save_start_block = NULL;
+    const unsigned char* save_start_block = NULL;
     SLINGA_ERROR result = 0;
 
     if(!block_index || !bitmap || !bitmap_size || !partition_buf || !partition_size || !block_size || !start_block || !start_data_block || !written_sat_entries)
@@ -1074,12 +1266,20 @@ static SLINGA_ERROR read_sat_table_from_block(unsigned int block_index,
     // loop through the block, recording SAT table entries until you find the
     // 0x0000 terminator or reach the end of the block
 
-    // TODO: why 2
-    for(; start_byte < block_size/2; start_byte += sizeof(unsigned short))
+    if(skip_bytes == 1)
     {
-        unsigned short index = 0;// *(unsigned short*)((unsigned char*)save_start + start_byte);
+        // every other byte is valid
+        block_size = block_size/2;
+    }
 
-        // TODO: save_start_block needs to be incremented
+    // look throught the block recording all the block indexes
+    // we terminate if:
+    // - we reach the end of the block
+    // - we encounter a 0x0000
+    for(; start_byte < block_size; start_byte += sizeof(unsigned short))
+    {
+        unsigned short index = 0;
+
         // copy the data locally to avoid having to deal with skip_bytes
         result = read_from_partition((unsigned char*)&index, save_start_block, start_byte, sizeof(unsigned short), skip_bytes);
         if(result != SLINGA_SUCCESS)
@@ -1195,10 +1395,11 @@ static SLINGA_ERROR get_next_block_bitmap(unsigned int block_index, const unsign
 //
 
 /**
- * @brief Reads bytes from partition. Needed to support skip_bytes
+ * @brief Read bytes from partition. Needed to support skip_bytes
  *
  * @param[in] dst Destination buffer on success
  * @param[in] src Source of bytes to read
+ * @param[in] src_offset Offset from src to start reading. Will be adjusted by skip_bytes
  * @param[in] size How many bytes to write from src to dest
  * @param[in] skip_bytes How many bytes to skip between valid bytes. This is used by internal\cartridge only.
  *
@@ -1233,3 +1434,86 @@ static SLINGA_ERROR read_from_partition(unsigned char* dst, const unsigned char*
 
     return SLINGA_SUCCESS;
 }
+
+/**
+ * @brief Write bytes to partition. Needed to support skip_bytes
+ *
+ * @param[in] dst Destination buffer to write to
+ * @param[in] dst_offset Offset from dst to start writing. Will be adjusted by skip_bytes
+ * @param[in] src Source of bytes to write
+ * @param[in] size How many bytes to write from src to dest
+ * @param[in] skip_bytes How many bytes to skip between valid bytes. This is used by internal\cartridge only.
+
+ * @return SLINGA_SUCCESS on success
+ */
+static SLINGA_ERROR write_to_partition(unsigned char* dst, unsigned int dst_offset, const unsigned char* src, unsigned int size, unsigned int skip_bytes)
+{
+    if(!dst || !src || !size)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    if(skip_bytes != 0 && skip_bytes != 1)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // if skip_bytes is 0, just memcpy
+    if(skip_bytes == 0)
+    {
+        memcpy(dst + dst_offset, src, size);
+        return SLINGA_SUCCESS;
+    }
+
+    dst_offset *= 2;
+
+    // skip bytes is 1
+    for(unsigned int i = 0; i < size; i++)
+    {
+        dst[(i*2) + skip_bytes + dst_offset] = src[i];
+    }
+
+    return SLINGA_SUCCESS;
+}
+
+/**
+ * @brief Memset bytes in partition. Needed to support skip_bytes
+ *
+ * @param[in] dst Destination buffer to write to
+ * @param[in] dst_offset Offset from dst to start writing. Will be adjusted by skip_bytes
+ * @param[in] val byte to write
+ * @param[in] size How many bytes to write from src to dest
+ * @param[in] skip_bytes How many bytes to skip between valid bytes. This is used by internal\cartridge only.
+
+ * @return SLINGA_SUCCESS on success
+ */
+static SLINGA_ERROR memset_partition(unsigned char* dst, unsigned int dst_offset, unsigned char val, unsigned int size, unsigned int skip_bytes)
+{
+    if(!dst || !size)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    if(skip_bytes != 0 && skip_bytes != 1)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // if skip_bytes is 0, just memcpy
+    if(skip_bytes == 0)
+    {
+        memset(dst + dst_offset, val, size);
+        return SLINGA_SUCCESS;
+    }
+
+    dst_offset *= 2;
+
+    // skip bytes is 1
+    for(unsigned int i = 0; i < size; i++)
+    {
+        dst[(i*2) + skip_bytes + dst_offset] = val;
+    }
+
+    return SLINGA_SUCCESS;
+}
+

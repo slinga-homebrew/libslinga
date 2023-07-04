@@ -321,6 +321,14 @@ SLINGA_ERROR Saturn_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filen
         return result;
     }
 
+    // make sure the device is formatted
+    result = sat_check_formatted(partition_buf, partition_size, block_size, skip_bytes);
+    if(result != SLINGA_SUCCESS)
+    {
+        jo_core_error("Not formatted");
+        return result;
+    }
+
     result = sat_read_save(filename,
                            buffer,
                            size,
@@ -349,7 +357,6 @@ SLINGA_ERROR Saturn_Write(DEVICE_TYPE device_type, FLAGS flags, const char* file
         return SLINGA_INVALID_DEVICE_TYPE;
     }
 
-    // writing to AR is nontrivial, a ton of work to support
     // not currently supported
     return SLINGA_NOT_SUPPORTED;
 }
@@ -364,21 +371,37 @@ SLINGA_ERROR Saturn_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* fil
         return SLINGA_INVALID_DEVICE_TYPE;
     }
 
-    // writing to AR is nontrivial, a ton of work to support
     // not currently supported
     return SLINGA_NOT_SUPPORTED;
 }
 
 SLINGA_ERROR Saturn_Format(DEVICE_TYPE device_type)
 {
+    unsigned char* partition_buf = NULL;
+    unsigned int partition_size = 0;
+    unsigned int block_size = 0;
+    unsigned int skip_bytes = 0;
+    SLINGA_ERROR result = 0;
+
     if(device_type != DEVICE_INTERNAL && device_type != DEVICE_CARTRIDGE)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
     }
 
-    // writing to AR is nontrivial, a ton of work to support
-    // not currently supported
-    return SLINGA_NOT_SUPPORTED;
+    result = get_partition_info(device_type, 0, &partition_buf, &partition_size, &block_size, &skip_bytes);
+    if(result != SLINGA_SUCCESS)
+    {
+        jo_core_error("Failed to get partitioninfo!!");
+        return result;
+    }
+
+    result = sat_format(partition_buf, partition_size, block_size, skip_bytes);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    return SLINGA_SUCCESS;
 }
 
 //

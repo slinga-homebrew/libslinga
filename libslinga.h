@@ -50,6 +50,7 @@ typedef enum
     SLINGA_NOT_FOUND,                   ///< @brief Save not found
     SLINGA_MORE_DATA_AVAILABLE,         ///< @brief Not a failure, but more data available to read
 
+    SLINGA_SAT_UNFORMATTED,             ///< @brief The device isn't formatted
     SLINGA_SAT_SAVE_OUT_OF_RANGE,       ///< @brief Save doesn't fit in the SAT bitmap
     SLINGA_SAT_INVALID_PARTITION,       ///< @brief Something with the SAT partition is wrong
     SLINGA_SAT_TOO_MANY_BLOCKS,         ///< @brief Too many blocks on the SAT paritition
