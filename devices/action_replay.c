@@ -5,7 +5,7 @@
  *  @bug Read-only support.
  */
 #include "action_replay.h"
-#include "sat.h"
+#include "sat/sat.h"
 
 #ifdef INCLUDE_ACTION_REPLAY
 

@@ -5,7 +5,7 @@
  *  @bug Read-only support.
  */
 #include "saturn.h"
-#include "sat.h"
+#include "sat/sat.h"
 
 #if defined(INCLUDE_INTERNAL) || defined(INCLUDE_CARTRIDGE)
 
@@ -169,6 +169,12 @@ SLINGA_ERROR Saturn_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
         return SLINGA_INVALID_DEVICE_TYPE;
     }
 
+    result = Saturn_IsPresent(device_type);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
     if(!stat)
     {
         return SLINGA_INVALID_PARAMETER;
@@ -235,6 +241,12 @@ SLINGA_ERROR Saturn_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* 
         return SLINGA_INVALID_PARAMETER;
     }
 
+    result = Saturn_IsPresent(device_type);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
     result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
@@ -268,6 +280,12 @@ SLINGA_ERROR Saturn_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA sa
     if(device_type != DEVICE_INTERNAL && device_type != DEVICE_CARTRIDGE)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
+    result = Saturn_IsPresent(device_type);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
     }
 
     result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
@@ -311,6 +329,12 @@ SLINGA_ERROR Saturn_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filen
         return SLINGA_INVALID_PARAMETER;
     }
 
+    result = Saturn_IsPresent(device_type);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
     result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
@@ -347,9 +371,17 @@ SLINGA_ERROR Saturn_Write(DEVICE_TYPE device_type, FLAGS flags, const char* file
     UNUSED(buffer);
     UNUSED(size);
 
+    SLINGA_ERROR result = 0;
+
     if(device_type != DEVICE_INTERNAL && device_type != DEVICE_CARTRIDGE)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
+    result = Saturn_IsPresent(device_type);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
     }
 
     // not currently supported
@@ -361,9 +393,17 @@ SLINGA_ERROR Saturn_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* fil
     UNUSED(flags);
     UNUSED(filename);
 
+    SLINGA_ERROR result = 0;
+
     if(device_type != DEVICE_INTERNAL && device_type != DEVICE_CARTRIDGE)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
+    result = Saturn_IsPresent(device_type);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
     }
 
     // not currently supported
@@ -381,6 +421,12 @@ SLINGA_ERROR Saturn_Format(DEVICE_TYPE device_type)
     if(device_type != DEVICE_INTERNAL && device_type != DEVICE_CARTRIDGE)
     {
         return SLINGA_INVALID_DEVICE_TYPE;
+    }
+
+    result = Saturn_IsPresent(device_type);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
     }
 
     result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
