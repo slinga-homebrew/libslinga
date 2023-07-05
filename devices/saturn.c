@@ -11,9 +11,10 @@
 #if defined(INCLUDE_INTERNAL) || defined(INCLUDE_CARTRIDGE)
 
 DEVICE_HANDLER g_Saturn_Handler = {0};
-
+SATURN_CARTRIDGE_TYPE g_Cartridge_Type = 0;
 
 static SLINGA_ERROR get_partition_info(DEVICE_TYPE device_type, SATURN_CARTRIDGE_TYPE cart_type, unsigned char** partition_start, unsigned int* partition_size, unsigned int* block_size, unsigned int* skip_bytes);
+static SLINGA_ERROR is_supported_backup_cartridge(SATURN_CARTRIDGE_TYPE cart_type);
 
 SLINGA_ERROR Saturn_RegisterHandler(DEVICE_TYPE device_type, PDEVICE_HANDLER* device_handler)
 {
@@ -114,8 +115,7 @@ SLINGA_ERROR Saturn_IsPresent(DEVICE_TYPE device_type)
         return SLINGA_SUCCESS;
     }
 
-    // finally check if the device type has the extra 4MB RAM
-    // we need this to have memory to decompress the save partition...
+    // Check if a support cart is plugged in
     result = get_cartridge_type(&cart_type);
     if(result != SLINGA_SUCCESS)
     {
@@ -123,15 +123,16 @@ SLINGA_ERROR Saturn_IsPresent(DEVICE_TYPE device_type)
         return SLINGA_DEVICE_NOT_PRESENT;
     }
 
-    if(cart_type != CARTRIDGE_RAM_4MB)
+    result = is_supported_backup_cartridge(cart_type);
+    if(result != SLINGA_SUCCESS)
     {
-        // The extended ram isn't present
-        // unfortunately we use that ram to decompress the partition
-        return SLINGA_ACTION_REPLAY_EXTENDED_RAM_MISSING;
+        return result;
     }
 
-    // Found Action Replay
+    // Found valid cartridge
+    g_Cartridge_Type = cart_type;
     g_Context.isPresent[device_type] = 1;
+
     return SLINGA_SUCCESS;
 }
 
@@ -176,7 +177,7 @@ SLINGA_ERROR Saturn_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
 
     memset(stat, 0, sizeof(BACKUP_STAT));
 
-    result = get_partition_info(device_type, 0, &partition_buf, &partition_size, &block_size, &skip_bytes);
+    result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         jo_core_error("Failed to get partitioninfo!!");
@@ -236,7 +237,7 @@ SLINGA_ERROR Saturn_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* 
         return SLINGA_INVALID_PARAMETER;
     }
 
-    result = get_partition_info(device_type, 0, &partition_buf, &partition_size, &block_size, &skip_bytes);
+    result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         jo_core_error("Failed to get partitioninfo!!");
@@ -272,7 +273,7 @@ SLINGA_ERROR Saturn_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA sa
         return SLINGA_INVALID_DEVICE_TYPE;
     }
 
-    result = get_partition_info(device_type, 0, &partition_buf, &partition_size, &block_size, &skip_bytes);
+    result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         jo_core_error("Failed to get partitioninfo!!");
@@ -314,7 +315,7 @@ SLINGA_ERROR Saturn_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filen
         return SLINGA_INVALID_PARAMETER;
     }
 
-    result = get_partition_info(device_type, 0, &partition_buf, &partition_size, &block_size, &skip_bytes);
+    result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         jo_core_error("Failed to get partitioninfo!!");
@@ -325,7 +326,6 @@ SLINGA_ERROR Saturn_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filen
     result = sat_check_formatted(partition_buf, partition_size, block_size, skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
-        jo_core_error("Not formatted");
         return result;
     }
 
@@ -388,7 +388,7 @@ SLINGA_ERROR Saturn_Format(DEVICE_TYPE device_type)
         return SLINGA_INVALID_DEVICE_TYPE;
     }
 
-    result = get_partition_info(device_type, 0, &partition_buf, &partition_size, &block_size, &skip_bytes);
+    result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         jo_core_error("Failed to get partitioninfo!!");
@@ -430,8 +430,73 @@ static SLINGA_ERROR get_partition_info(DEVICE_TYPE device_type, SATURN_CARTRIDGE
         return SLINGA_SUCCESS;
     }
 
+
+    switch(cart_type)
+    {
+        case CARTRIDGE_BACKUP_400_200_512K:
+        {
+            // 0x400 blocks * 0x200 block size
+            *partition_start = (unsigned char*)CARTRIDGE_MEMORY_BACKUP;
+            *partition_size = CARTRIDGE_NUM_BLOCKS_0x400 * CARTRIDGE_BLOCK_SIZE_0x200;
+            *block_size = CARTRIDGE_BLOCK_SIZE_0x200;
+            *skip_bytes = CARTRIDGE_SKIP_BYTES;
+
+            return SLINGA_SUCCESS;
+        }
+        case CARTRIDGE_BACKUP_800_200_1MB:
+        {
+            // 0x800 blocks * 0x200 block size
+            *partition_start = (unsigned char*)CARTRIDGE_MEMORY_BACKUP;
+            *partition_size = CARTRIDGE_NUM_BLOCKS_0x800 * CARTRIDGE_BLOCK_SIZE_0x200;
+            *block_size = CARTRIDGE_BLOCK_SIZE_0x200;
+            *skip_bytes = CARTRIDGE_SKIP_BYTES;
+
+            return SLINGA_SUCCESS;
+        }
+        case CARTRIDGE_BACKUP_1000_200_2MB:
+        {
+            // 0x1000 blocks * 0x200 block size
+            *partition_start = (unsigned char*)CARTRIDGE_MEMORY_BACKUP;
+            *partition_size = CARTRIDGE_NUM_BLOCKS_0x1000 * CARTRIDGE_BLOCK_SIZE_0x200;
+            *block_size = CARTRIDGE_BLOCK_SIZE_0x200;
+            *skip_bytes = CARTRIDGE_SKIP_BYTES;
+
+            return SLINGA_SUCCESS;
+        }
+        case CARTRIDGE_BACKUP_1000_400_4MB:
+        {
+            // 0x1000 blocks * 0x400 block size
+            *partition_start = (unsigned char*)CARTRIDGE_MEMORY_BACKUP;
+            *partition_size = CARTRIDGE_NUM_BLOCKS_0x1000 * CARTRIDGE_BLOCK_SIZE_0x400;
+            *block_size = CARTRIDGE_BLOCK_SIZE_0x400;
+            *skip_bytes = CARTRIDGE_SKIP_BYTES;
+
+            return SLINGA_SUCCESS;
+        }
+        default:
+            break;
+   }
+
     return SLINGA_INVALID_DEVICE_TYPE;
 }
 
+static SLINGA_ERROR is_supported_backup_cartridge(SATURN_CARTRIDGE_TYPE cart_type)
+{
+    unsigned char* partition_buf = NULL;
+    unsigned int partition_size = 0;
+    unsigned int block_size = 0;
+    unsigned int skip_bytes = 0;
+    SLINGA_ERROR result = 0;
+
+    // instead of duplicating a list of support cartridges, just see if we have
+    // settings for them
+    result = get_partition_info(DEVICE_CARTRIDGE, cart_type, &partition_buf, &partition_size, &block_size, &skip_bytes);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    return SLINGA_SUCCESS;
+}
 
 #endif

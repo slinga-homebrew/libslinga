@@ -13,7 +13,7 @@
 //
 
 #define INCLUDE_INTERNAL          1
-//#define INCLUDE_CARTRIDGE       1
+#define INCLUDE_CARTRIDGE         1
 //#define INCLUDE_SERIAL          1
 #define INCLUDE_RAM               1
 //#define INCLUDE_CD              1

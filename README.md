@@ -15,7 +15,7 @@ The following devices are planned to be supported. I am open to adding any devic
 |Device|Read Support|Write Support|Notes|
 |---|:---:|:---:|---|
 |Internal Memory|&#x2718;|||
-|Cartridge Memory||||
+|Cartridge Memory|&#x2718;|||
 |Serial Link||||
 |RAM|Partially Implemented|Partially Implemented|Helper device used to read\dump memory for Save Game Copier. Not the same as Internal\Cartridge memory|
 |CD||||

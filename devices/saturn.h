@@ -23,6 +23,17 @@
 #define INTERNAL_MEMORY_BLOCK_SIZE 0x80      ///< @brief Block size of the internal memory partition. Only every other byte is valid
 #define INTERNAL_MEMORY_SKIP_BYTES 1         ///< @brief Handles every other byte being valid on internal memory
 
+#define CARTRIDGE_MEMORY_BACKUP 0x04000000   ///< @brief Start backup cartridge address
+#define CARTRIDGE_NUM_BLOCKS_0x400 0x400
+#define CARTRIDGE_NUM_BLOCKS_0x800 0x800
+#define CARTRIDGE_NUM_BLOCKS_0x1000 0x1000
+
+// TODO: don't multiply by2 for the skip bytes here
+// you will screw up
+#define CARTRIDGE_BLOCK_SIZE_0x200 (0x200 * 2) // skip bytes
+#define CARTRIDGE_BLOCK_SIZE_0x400 (0x400 * 2)
+#define CARTRIDGE_SKIP_BYTES 1
+
 SLINGA_ERROR Saturn_RegisterHandler(DEVICE_TYPE type, PDEVICE_HANDLER* device_handler);
 SLINGA_ERROR Saturn_Init(DEVICE_TYPE device_type);
 SLINGA_ERROR Saturn_Fini(DEVICE_TYPE device_type);
