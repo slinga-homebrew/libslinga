@@ -6,7 +6,6 @@
  */
 #include "saturn.h"
 #include "sat.h"
-#include <jo/jo.h>
 
 #if defined(INCLUDE_INTERNAL) || defined(INCLUDE_CARTRIDGE)
 
@@ -180,7 +179,6 @@ SLINGA_ERROR Saturn_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
     result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
-        jo_core_error("Failed to get partitioninfo!!");
         return result;
     }
 
@@ -240,7 +238,6 @@ SLINGA_ERROR Saturn_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* 
     result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
-        jo_core_error("Failed to get partitioninfo!!");
         return result;
     }
 
@@ -276,7 +273,6 @@ SLINGA_ERROR Saturn_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA sa
     result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
-        jo_core_error("Failed to get partitioninfo!!");
         return result;
     }
 
@@ -318,7 +314,6 @@ SLINGA_ERROR Saturn_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filen
     result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
-        jo_core_error("Failed to get partitioninfo!!");
         return result;
     }
 
@@ -391,7 +386,6 @@ SLINGA_ERROR Saturn_Format(DEVICE_TYPE device_type)
     result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
-        jo_core_error("Failed to get partitioninfo!!");
         return result;
     }
 
