@@ -6,11 +6,10 @@
  */
 #pragma once
 
+#include "../../libslinga/libslinga_conf.h"
 
-#include "../libslinga/libslinga_conf.h"
-
-#include "../libslinga.h"
-#include "../libslinga/saturn.h"
+#include "../../libslinga.h"
+#include "../../libslinga/saturn.h"
 
 //
 // SAT structures
@@ -75,6 +74,13 @@ SLINGA_ERROR sat_read_save(const char* filename,
                            unsigned int partition_size,
                            unsigned int block_size,
                            unsigned char skip_bytes);
+
+SLINGA_ERROR sat_delete(const char* filename,
+                        FLAGS flags,
+                        unsigned char* partition_buf,
+                        unsigned int partition_size,
+                        unsigned int block_size,
+                        unsigned char skip_bytes);
 
 SLINGA_ERROR sat_check_formatted(const unsigned char* partition_buf,
                                  unsigned int partition_size,

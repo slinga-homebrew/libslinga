@@ -209,6 +209,69 @@ SLINGA_ERROR sat_read_save(const char* filename,
                                   bytes_read);
 }
 
+
+/**
+ * @brief Deletes save from the partition.
+ *
+ * @param[in] filename Save to delete
+ * @param[in] flags flags
+ * @param[in] partition_buf Start of the save partition
+ * @param[in] partition_size Size in bytes of the save partition
+ * @param[in] block_size How big the blocks are on the partition
+ * @param[in] skip_bytes How many bytes to skip between valid bytes. This is used by internal\cartridge only.
+ *
+ * @return SLINGA_SUCCESS on success
+ */
+SLINGA_ERROR sat_delete(const char* filename,
+                        FLAGS flags,
+                        unsigned char* partition_buf,
+                        unsigned int partition_size,
+                        unsigned int block_size,
+                        unsigned char skip_bytes)
+{
+    UNUSED(flags); // TODO: add zero entire save option
+
+    unsigned char* save_start = NULL;
+    SLINGA_ERROR result = 0;
+
+    if(!partition_buf || !partition_size || !block_size)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // block size must be 64-byte aligned
+    if((block_size % MIN_BLOCK_SIZE) != 0)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    if(skip_bytes != 0 && skip_bytes != 1)
+    {
+        return SLINGA_INVALID_PARAMETER;
+    }
+
+    // locate the save
+    result = find_save(filename,
+                       partition_buf,
+                       partition_size,
+                       block_size,
+                       skip_bytes,
+                       &save_start);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    // delete the save by overwriting the tag field to 0
+    result = memset_partition(save_start, 0, 0, SAT_TAG_SIZE, skip_bytes);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    return SLINGA_SUCCESS;
+}
+
 /**
  * @brief Returns success if the partition is currently formatted
  *

@@ -393,6 +393,10 @@ SLINGA_ERROR Saturn_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* fil
     UNUSED(flags);
     UNUSED(filename);
 
+    unsigned char* partition_buf = NULL;
+    unsigned int partition_size = 0;
+    unsigned int block_size = 0;
+    unsigned int skip_bytes = 0;
     SLINGA_ERROR result = 0;
 
     if(device_type != DEVICE_INTERNAL && device_type != DEVICE_CARTRIDGE)
@@ -406,8 +410,19 @@ SLINGA_ERROR Saturn_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* fil
         return result;
     }
 
-    // not currently supported
-    return SLINGA_NOT_SUPPORTED;
+    result = get_partition_info(device_type, g_Cartridge_Type, &partition_buf, &partition_size, &block_size, &skip_bytes);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    result = sat_delete(filename, flags, partition_buf, partition_size, block_size, skip_bytes);
+    if(result != SLINGA_SUCCESS)
+    {
+        return result;
+    }
+
+    return SLINGA_SUCCESS;
 }
 
 SLINGA_ERROR Saturn_Format(DEVICE_TYPE device_type)
