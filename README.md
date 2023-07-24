@@ -1,6 +1,6 @@
 # libslinga: Saturn LIbrary for Navigating Gaming Achievements #
 
-Very early WIP, not useable. 
+Early WIP, probably usable, requires more testing. **BACKUP YOUR SAVES FIRST**
 
 Sega Saturn library for reading\writing save game files. The goals are:
 - work on real hardware
@@ -14,12 +14,12 @@ The following devices are planned to be supported. I am open to adding any devic
 
 |Device|Read Support|Write Support|Notes|
 |---|:---:|:---:|---|
-|Internal Memory|&#x2718;|||
-|Cartridge Memory|&#x2718;|||
+|Internal Memory|:heavy_check_mark:|:heavy_check_mark:||
+|Cartridge Memory|:heavy_check_mark:|:heavy_check_mark:||
 |Serial Link||||
 |RAM|Partially Implemented|Partially Implemented|Helper device used to read\dump memory for Save Game Copier. Not the same as Internal\Cartridge memory|
 |CD||||
-|Action Replay Plus Cartridge|&#x2718;|| Read only support checked in. Requires Action Replay Plus (with 1 and/or 4MB RAM expansion). Write support seems really hard so no plan at the moment...|
+|Action Replay Plus Cartridge|:heavy_check_mark:|| Read only support checked in. Requires Action Replay Plus (with 1 and/or 4MB RAM expansion). Write support seems really hard so no plan at the moment...|
 |Satiator ODE|||Current code is not MIT|
 |MODE ODE|||Current code is not MIT|
 |Fenrir ODE|||Need library from developer|
