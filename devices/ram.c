@@ -166,10 +166,11 @@ SLINGA_ERROR RAM_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filename
     return SLINGA_NOT_IMPLEMENTED;
 }
 
-SLINGA_ERROR RAM_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size)
+SLINGA_ERROR RAM_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const PSAVE_METADATA save_metadata, const unsigned char* buffer, unsigned int size)
 {
     UNUSED(flags);
     UNUSED(filename);
+    UNUSED(save_metadata);
     UNUSED(buffer);
     UNUSED(size);
 

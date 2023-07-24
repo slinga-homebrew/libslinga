@@ -327,14 +327,14 @@ SLINGA_ERROR ActionReplay_Read(DEVICE_TYPE device_type, FLAGS flags, const char*
         return result;
     }
 
-    result = sat_read_save(filename,
-                           buffer,
-                           size,
-                           bytes_read,
-                           partition_buf,
-                           partition_size,
-                           ACTION_REPLAY_BLOCK_SIZE,
-                           0);
+    result = sat_read(filename,
+                      buffer,
+                      size,
+                      bytes_read,
+                      partition_buf,
+                      partition_size,
+                      ACTION_REPLAY_BLOCK_SIZE,
+                      0);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -343,10 +343,11 @@ SLINGA_ERROR ActionReplay_Read(DEVICE_TYPE device_type, FLAGS flags, const char*
     return SLINGA_SUCCESS;
 }
 
-SLINGA_ERROR ActionReplay_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size)
+SLINGA_ERROR ActionReplay_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const PSAVE_METADATA save_metadata, const unsigned char* buffer, unsigned int size)
 {
     UNUSED(flags);
     UNUSED(filename);
+    UNUSED(save_metadata);
     UNUSED(buffer);
     UNUSED(size);
 

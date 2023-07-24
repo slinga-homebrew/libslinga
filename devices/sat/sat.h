@@ -66,14 +66,24 @@ SLINGA_ERROR sat_query_file(const char* filename,
                             unsigned char skip_bytes,
                             PSAVE_METADATA metadata);
 
-SLINGA_ERROR sat_read_save(const char* filename,
-                           unsigned char* buffer,
-                           unsigned int size,
-                           unsigned int* bytes_read,
-                           const unsigned char* partition_buf,
-                           unsigned int partition_size,
-                           unsigned int block_size,
-                           unsigned char skip_bytes);
+SLINGA_ERROR sat_read(const char* filename,
+                      unsigned char* buffer,
+                      unsigned int size,
+                      unsigned int* bytes_read,
+                      const unsigned char* partition_buf,
+                      unsigned int partition_size,
+                      unsigned int block_size,
+                      unsigned char skip_bytes);
+
+SLINGA_ERROR sat_write(FLAGS flags,
+                       const char* filename,
+                       const PSAVE_METADATA save_metadata,
+                       const unsigned char* buffer,
+                       unsigned int size,
+                       unsigned char* partition_buf,
+                       unsigned int partition_size,
+                       unsigned int block_size,
+                       unsigned char skip_bytes);
 
 SLINGA_ERROR sat_delete(const char* filename,
                         FLAGS flags,

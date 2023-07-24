@@ -48,7 +48,7 @@ SLINGA_ERROR Saturn_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* 
 SLINGA_ERROR Saturn_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA saves, unsigned int num_saves, unsigned int* saves_found);
 
 SLINGA_ERROR Saturn_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filename, unsigned char* buffer, unsigned int size, unsigned int* bytes_read);
-SLINGA_ERROR Saturn_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size);
+SLINGA_ERROR Saturn_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const PSAVE_METADATA save_metadata, const unsigned char* buffer, unsigned int size);
 SLINGA_ERROR Saturn_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* filename);
 SLINGA_ERROR Saturn_Format(DEVICE_TYPE device_type);
 

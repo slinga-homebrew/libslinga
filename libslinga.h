@@ -36,28 +36,29 @@ typedef enum
 
     // errors
     // TODO: number each one
-    SLINGA_NOT_INITIALIZED,             ///< @brief libslinga not initialized
-    SLINGA_INVALID_DEVICE_TYPE,         ///< @brief Invalid backup device specified
-    SLINGA_BUFFER_TOO_SMALL,            ///< @brief Insufficient buffer provided
+    SLINGA_NOT_INITIALIZED = 1,             ///< @brief libslinga not initialized
+    SLINGA_INVALID_DEVICE_TYPE = 2,         ///< @brief Invalid backup device specified
+    SLINGA_NOT_ENOUGH_SPACE = 3,            ///< @brief Not enough space on the device
     SLINGA_DEVICE_NOT_PRESENT = 4,      ///< @brief Backup device is not present
     SLINGA_NOT_FORMATTED = 5,           ///< @brief Backup device is not formatted
-    SLINGA_DEVICE_TYPE_NOT_COMPILED_IN, ///< @brief Specified backup medium type was not compiled in. Check #ifdefs
-    SLINGA_NOT_SUPPORTED,               ///< @brief Specified operation is not supported
-    SLINGA_INVALID_PARAMETER,           ///< @brief Invalid argument provided
-    SLINGA_FILE_EXISTS,                 ///< @brief File already exists
-    SLINGA_UNKNOWN_CARTRIDGE,           ///< @brief Unknown cartridge type found
-    SLINGA_NOT_IMPLEMENTED,             ///< @brief Not supported yet
-    SLINGA_NOT_FOUND,                   ///< @brief Save not found
-    SLINGA_MORE_DATA_AVAILABLE,         ///< @brief Not a failure, but more data available to read
+    SLINGA_BUFFER_TOO_SMALL = 6,            ///< @brief Insufficient buffer provided
+    SLINGA_DEVICE_TYPE_NOT_COMPILED_IN = 7, ///< @brief Specified backup medium type was not compiled in. Check #ifdefs
+    SLINGA_NOT_SUPPORTED = 8,               ///< @brief Specified operation is not supported
+    SLINGA_INVALID_PARAMETER = 9,           ///< @brief Invalid argument provided
+    SLINGA_FILE_EXISTS = 10,                 ///< @brief File already exists
+    SLINGA_UNKNOWN_CARTRIDGE = 11,           ///< @brief Unknown cartridge type found
+    SLINGA_NOT_IMPLEMENTED = 12,             ///< @brief Not supported yet
+    SLINGA_NOT_FOUND = 13,                   ///< @brief Save not found
+    SLINGA_MORE_DATA_AVAILABLE =14,         ///< @brief Not a failure, but more data available to read
 
-    SLINGA_SAT_UNFORMATTED,             ///< @brief The device isn't formatted
-    SLINGA_SAT_SAVE_OUT_OF_RANGE,       ///< @brief Save doesn't fit in the SAT bitmap
-    SLINGA_SAT_INVALID_PARTITION,       ///< @brief Something with the SAT partition is wrong
-    SLINGA_SAT_TOO_MANY_BLOCKS,         ///< @brief Too many blocks on the SAT paritition
-    SLINGA_SAT_BLOCKS_OUT_OF_ORDER,     ///< @brief SAT block entries are out of order
-    SLINGA_SAT_INVALID_SIZE,            ///< @brief Bad copy size
-    SLINGA_SAT_INVALID_READ_SIZE,       ///< @brief Bad read size
-    SLINGA_SAT_INVALID_TAG,             ///< @brief Bad SAT block tag
+    SLINGA_SAT_UNFORMATTED = 0x200,             ///< @brief The device isn't formatted
+    SLINGA_SAT_SAVE_OUT_OF_RANGE = 0x201,       ///< @brief Save doesn't fit in the SAT bitmap
+    SLINGA_SAT_INVALID_PARTITION = 0x202,       ///< @brief Something with the SAT partition is wrong
+    SLINGA_SAT_TOO_MANY_BLOCKS = 0x203,         ///< @brief Too many blocks on the SAT paritition
+    SLINGA_SAT_BLOCKS_OUT_OF_ORDER = 0x204,     ///< @brief SAT block entries are out of order
+    SLINGA_SAT_INVALID_SIZE = 0x205,            ///< @brief Bad copy size
+    SLINGA_SAT_INVALID_READ_SIZE = 0x206,       ///< @brief Bad read size
+    SLINGA_SAT_INVALID_TAG = 0x207,             ///< @brief Bad SAT block tag
 
     SLINGA_ACTION_REPLAY_UNSUPPORTED_COMPRESSION,     ///< @brief Action Replay: Unknown compression algorithm
     SLINGA_ACTION_REPLAY_CORRUPT_COMPRESSION_HEADER,  ///< @brief Action Replay: Compression header is corrupt
@@ -106,8 +107,9 @@ typedef struct _BACKUP_STAT
 /** @brief libslinga function flags */
 typedef enum
 {
-    DIRECT_WRITE = 1,               ///< @brief Skip the BUP header and write filename and contents directly
-    OVERWRITE_EXISTING_SAVE = 2,    ///< @brief Allow existing saves to be overwritten without erroring
+    DIRECT_WRITE = 1 << 0,               ///< @brief Skip the BUP header and write filename and contents directly
+    OVERWRITE_EXISTING_SAVE = 1 << 1,    ///< @brief Allow existing saves to be overwritten without erroring
+    ZERO_DELETE = 1 << 2,                ///< @brief Slower delete, overwrite entire save with zeros (not just tag)
 
 } FLAGS;
 
@@ -138,7 +140,7 @@ SLINGA_ERROR Slinga_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA sa
 SLINGA_ERROR Slinga_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* filename, PSAVE_METADATA save);
 
 SLINGA_ERROR Slinga_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filename, unsigned char* buffer, unsigned int size, unsigned int* bytes_read);
-SLINGA_ERROR Slinga_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size);
+SLINGA_ERROR Slinga_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const PSAVE_METADATA save_metadata, const unsigned char* buffer, unsigned int size);
 SLINGA_ERROR Slinga_Delete(DEVICE_TYPE device_type, FLAGS flags, const char* filename);
 SLINGA_ERROR Slinga_Format(DEVICE_TYPE device_type);
 
@@ -153,7 +155,7 @@ typedef SLINGA_ERROR (*DEVICE_STAT)(DEVICE_TYPE, PBACKUP_STAT);
 typedef SLINGA_ERROR (*DEVICE_LIST)(DEVICE_TYPE, FLAGS, PSAVE_METADATA, unsigned int, unsigned int*);
 typedef SLINGA_ERROR (*DEVICE_QUERY_FILE)(DEVICE_TYPE, FLAGS, const char*, PSAVE_METADATA);
 typedef SLINGA_ERROR (*DEVICE_READ)(DEVICE_TYPE, FLAGS, const char*, unsigned char*, unsigned int, unsigned int*);
-typedef SLINGA_ERROR (*DEVICE_WRITE)(DEVICE_TYPE, FLAGS, const char*, const unsigned char*, unsigned int);
+typedef SLINGA_ERROR (*DEVICE_WRITE)(DEVICE_TYPE, FLAGS, const char*, const PSAVE_METADATA, const unsigned char*, unsigned int);
 typedef SLINGA_ERROR (*DEVICE_DELETE)(DEVICE_TYPE, FLAGS, const char*);
 typedef SLINGA_ERROR (*DEVICE_FORMAT)(DEVICE_TYPE);
 
@@ -175,4 +177,5 @@ typedef struct _DEVICE_HANDLER
 } DEVICE_HANDLER, *PDEVICE_HANDLER;
 
 #define UNUSED(x) (void)x;
+#define LIBSLINGA_MIN(x, y) (((x) < (y)) ? (x) : (y))
 
