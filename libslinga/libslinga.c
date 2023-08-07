@@ -513,7 +513,7 @@ SLINGA_ERROR Slinga_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filen
  *
  * @return SLINGA_SUCCESS on success
  */
-SLINGA_ERROR Slinga_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const unsigned char* buffer, unsigned int size)
+SLINGA_ERROR Slinga_Write(DEVICE_TYPE device_type, FLAGS flags, const char* filename, const PSAVE_METADATA save_metadata, const unsigned char* buffer, unsigned int size)
 {
     PDEVICE_HANDLER handler = NULL;
 
@@ -539,7 +539,7 @@ SLINGA_ERROR Slinga_Write(DEVICE_TYPE device_type, FLAGS flags, const char* file
         return -1;
     }
 
-    return handler->write(device_type, flags, filename, buffer, size);
+    return handler->write(device_type, flags, filename, save_metadata, buffer, size);
 }
 
 /**

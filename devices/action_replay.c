@@ -14,7 +14,7 @@ DEVICE_HANDLER g_ActionReplay_Handler = {0};
 
 // utility functions
 
-static SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_size, unsigned char **dest, unsigned int* dest_size);
+static SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_size, PPARTITION_INFO partition_info);
 static SLINGA_ERROR decompress_RLE01(unsigned char rle_key, const unsigned char *src, unsigned int src_size, unsigned char *dest, unsigned int* bytes_needed);
 
 /*
@@ -162,8 +162,7 @@ SLINGA_ERROR ActionReplay_IsWriteable(DEVICE_TYPE device_type)
 
 SLINGA_ERROR ActionReplay_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
 {
-    unsigned char* partition_buf = NULL;
-    unsigned int partition_size = 0;
+    PARTITION_INFO partition_info = {0};
     unsigned int used_blocks = 0;
     SLINGA_ERROR result = 0;
 
@@ -180,14 +179,14 @@ SLINGA_ERROR ActionReplay_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
     memset(stat, 0, sizeof(BACKUP_STAT));
 
     // decompress the save partition
-    result = decompress_partition((const unsigned char*)(CARTRIDGE_MEMORY + ACTION_REPLAY_SAVES_OFFSET), ACTION_REPLAY_COMPRESSED_PARTITION_MAX_SIZE, &partition_buf, &partition_size);
+    result = decompress_partition((const unsigned char*)(CARTRIDGE_MEMORY + ACTION_REPLAY_SAVES_OFFSET), ACTION_REPLAY_COMPRESSED_PARTITION_MAX_SIZE, &partition_info);
     if(result != SLINGA_SUCCESS)
     {
         // failed to decompress
         return result;
     }
 
-    result = sat_get_used_blocks(partition_buf, partition_size, ACTION_REPLAY_BLOCK_SIZE, 0, &used_blocks);
+    result = sat_get_used_blocks(&partition_info, &used_blocks);
     if(result != SLINGA_SUCCESS)
     {
         // failed to parse partition
@@ -217,8 +216,7 @@ SLINGA_ERROR ActionReplay_Stat(DEVICE_TYPE device_type, PBACKUP_STAT stat)
 
 SLINGA_ERROR ActionReplay_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const char* filename, PSAVE_METADATA save)
 {
-    unsigned char* partition_buf = NULL;
-    unsigned int partition_size = 0;
+    PARTITION_INFO partition_info = {0};
     SLINGA_ERROR result = 0;
 
     UNUSED(flags);
@@ -236,8 +234,7 @@ SLINGA_ERROR ActionReplay_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const 
     // decompress the save partition
     result = decompress_partition((const unsigned char*)(CARTRIDGE_MEMORY + ACTION_REPLAY_SAVES_OFFSET),
                                   ACTION_REPLAY_COMPRESSED_PARTITION_MAX_SIZE,
-                                  &partition_buf,
-                                  &partition_size);
+                                  &partition_info);
     if(result != SLINGA_SUCCESS)
     {
         // failed to decompress
@@ -245,11 +242,8 @@ SLINGA_ERROR ActionReplay_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const 
     }
 
     result = sat_query_file(filename,
-                            partition_buf,
-                           partition_size,
-                           ACTION_REPLAY_BLOCK_SIZE,
-                           0,
-                           save);
+                            &partition_info,
+                            save);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -260,8 +254,7 @@ SLINGA_ERROR ActionReplay_QueryFile(DEVICE_TYPE device_type, FLAGS flags, const 
 
 SLINGA_ERROR ActionReplay_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METADATA saves, unsigned int num_saves, unsigned int* saves_found)
 {
-    unsigned char* partition_buf = NULL;
-    unsigned int partition_size = 0;
+    PARTITION_INFO partition_info = {0};
     SLINGA_ERROR result = 0;
 
     UNUSED(flags);
@@ -274,18 +267,14 @@ SLINGA_ERROR ActionReplay_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METAD
     // decompress the save partition
     result = decompress_partition((const unsigned char*)(CARTRIDGE_MEMORY + ACTION_REPLAY_SAVES_OFFSET),
                                   ACTION_REPLAY_COMPRESSED_PARTITION_MAX_SIZE,
-                                  &partition_buf,
-                                  &partition_size);
+                                  &partition_info);
     if(result != SLINGA_SUCCESS)
     {
         // failed to decompress
         return result;
     }
 
-    result = sat_list_saves(partition_buf,
-                            partition_size,
-                            ACTION_REPLAY_BLOCK_SIZE,
-                            0,
+    result = sat_list_saves(&partition_info,
                             saves,
                             num_saves,
                             saves_found);
@@ -300,8 +289,7 @@ SLINGA_ERROR ActionReplay_List(DEVICE_TYPE device_type, FLAGS flags, PSAVE_METAD
 
 SLINGA_ERROR ActionReplay_Read(DEVICE_TYPE device_type, FLAGS flags, const char* filename, unsigned char* buffer, unsigned int size, unsigned int* bytes_read)
 {
-    unsigned char* partition_buf = NULL;
-    unsigned int partition_size = 0;
+    PARTITION_INFO partition_info = {0};
     SLINGA_ERROR result = 0;
 
     UNUSED(flags);
@@ -319,8 +307,7 @@ SLINGA_ERROR ActionReplay_Read(DEVICE_TYPE device_type, FLAGS flags, const char*
     // decompress the save partition
     result = decompress_partition((const unsigned char*)(CARTRIDGE_MEMORY + ACTION_REPLAY_SAVES_OFFSET),
                                   ACTION_REPLAY_COMPRESSED_PARTITION_MAX_SIZE,
-                                  &partition_buf,
-                                  &partition_size);
+                                  &partition_info);
     if(result != SLINGA_SUCCESS)
     {
         // failed to decompress
@@ -331,10 +318,7 @@ SLINGA_ERROR ActionReplay_Read(DEVICE_TYPE device_type, FLAGS flags, const char*
                       buffer,
                       size,
                       bytes_read,
-                      partition_buf,
-                      partition_size,
-                      ACTION_REPLAY_BLOCK_SIZE,
-                      0);
+                      &partition_info);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -396,9 +380,11 @@ SLINGA_ERROR ActionReplay_Format(DEVICE_TYPE device_type)
 // On success dest contains the uncompressed buffer of destSize bytes
 // Caller must free dest on success
 // returns 0 on success, non-zero on failure
-static SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_size, unsigned char **dest, unsigned int* dest_size)
+static SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int src_size, PPARTITION_INFO partition_info)
 {
     PRLE01_HEADER header = NULL;
+    unsigned char* dest = NULL;
+    unsigned int dest_size = 0;
     int result = 0;
 
     if(!src || !src_size || !dest || !dest_size)
@@ -431,25 +417,30 @@ static SLINGA_ERROR decompress_partition(const unsigned char *src, unsigned int 
     //
     // decompress the Action Replay compressed save buffer
     //
-    result = decompress_RLE01(header->rle_key, src + sizeof(RLE01_HEADER), header->compressed_size - sizeof(RLE01_HEADER), NULL, dest_size);
+    result = decompress_RLE01(header->rle_key, src + sizeof(RLE01_HEADER), header->compressed_size - sizeof(RLE01_HEADER), NULL, &dest_size);
     if(result < 0)
     {
         return SLINGA_ACTION_REPLAY_FAILED_DECOMPRESS_1;
     }
 
-    if(*dest_size > ACTION_REPLAY_UNCOMPRESSED_MAX_SIZE)
+    if(dest_size > ACTION_REPLAY_UNCOMPRESSED_MAX_SIZE)
     {
         return SLINGA_ACTION_REPLAY_PARTITION_TOO_LARGE;
     }
 
-    *dest = CARTRIDGE_RAM_BANK_1;
-    memset(*dest, 0, CARTRIDGE_RAM_BANK_SIZE);
+    dest = CARTRIDGE_RAM_BANK_1;
+    memset(dest, 0, CARTRIDGE_RAM_BANK_SIZE);
 
-    result = decompress_RLE01(header->rle_key, src  + sizeof(RLE01_HEADER), header->compressed_size - sizeof(RLE01_HEADER), *dest, dest_size);
+    result = decompress_RLE01(header->rle_key, src  + sizeof(RLE01_HEADER), header->compressed_size - sizeof(RLE01_HEADER), dest, &dest_size);
     if(result < 0)
     {
         return SLINGA_ACTION_REPLAY_FAILED_DECOMPRESS_2;
     }
+
+    partition_info->partition_buf = dest;
+    partition_info->partition_size = dest_size;
+    partition_info->block_size = ACTION_REPLAY_BLOCK_SIZE;
+    partition_info->skip_bytes = 0;
 
     return SLINGA_SUCCESS;
 }

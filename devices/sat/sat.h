@@ -45,59 +45,34 @@ typedef struct _SAT_START_BLOCK_HEADER
 #define BACKUP_RAM_FORMAT_STR "BackUpRam Format"
 #define BACKUP_RAM_FORMAT_STR_LEN 16
 
-SLINGA_ERROR sat_get_used_blocks(const unsigned char* partition_buf,
-                                 unsigned int partition_size,
-                                 unsigned int block_size,
-                                 unsigned char skip_bytes,
-                                 unsigned int* used_blocks);
+SLINGA_ERROR sat_get_used_blocks(const PPARTITION_INFO partition_info, unsigned int* used_blocks);
 
-SLINGA_ERROR sat_list_saves(const unsigned char* partition_buf,
-                            unsigned int partition_size,
-                            unsigned int block_size,
-                            unsigned char skip_bytes,
+SLINGA_ERROR sat_list_saves(const PPARTITION_INFO partition_info,
                             PSAVE_METADATA saves,
                             unsigned int num_saves,
                             unsigned int* saves_available);
 
 SLINGA_ERROR sat_query_file(const char* filename,
-                            const unsigned char* partition_buf,
-                            unsigned int partition_size,
-                            unsigned int block_size,
-                            unsigned char skip_bytes,
+                            const PPARTITION_INFO partition_info,
                             PSAVE_METADATA metadata);
 
 SLINGA_ERROR sat_read(const char* filename,
                       unsigned char* buffer,
                       unsigned int size,
                       unsigned int* bytes_read,
-                      const unsigned char* partition_buf,
-                      unsigned int partition_size,
-                      unsigned int block_size,
-                      unsigned char skip_bytes);
+                      const PPARTITION_INFO partition_info);
 
 SLINGA_ERROR sat_write(FLAGS flags,
                        const char* filename,
                        const PSAVE_METADATA save_metadata,
                        const unsigned char* buffer,
                        unsigned int size,
-                       unsigned char* partition_buf,
-                       unsigned int partition_size,
-                       unsigned int block_size,
-                       unsigned char skip_bytes);
+                       const PPARTITION_INFO partition_info);
 
 SLINGA_ERROR sat_delete(const char* filename,
                         FLAGS flags,
-                        unsigned char* partition_buf,
-                        unsigned int partition_size,
-                        unsigned int block_size,
-                        unsigned char skip_bytes);
+                        const PPARTITION_INFO partition_info);
 
-SLINGA_ERROR sat_check_formatted(const unsigned char* partition_buf,
-                                 unsigned int partition_size,
-                                 unsigned int block_size,
-                                 unsigned char skip_bytes);
+SLINGA_ERROR sat_check_formatted(const PPARTITION_INFO partition_info);
 
-SLINGA_ERROR sat_format(unsigned char* partition_buf,
-                        unsigned int partition_size,
-                        unsigned int block_size,
-                        unsigned char skip_bytes);
+SLINGA_ERROR sat_format(const PPARTITION_INFO partition_info);

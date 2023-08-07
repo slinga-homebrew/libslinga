@@ -56,29 +56,29 @@ unsigned char g_SAT_bitmap[SAT_MAX_BITMAP] = {0};
 
 // block helper functions
 static SLINGA_ERROR calc_num_blocks(unsigned int save_size, unsigned int block_size, unsigned int skip_bytes, unsigned int* num_save_blocks);
-static SLINGA_ERROR convert_address_to_block_index(const unsigned char* address, const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned int skip_bytes, unsigned int* block_index);
-static SLINGA_ERROR convert_block_index_to_address(unsigned int block_index, const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned int skip_bytes, unsigned char** address);
+static SLINGA_ERROR convert_address_to_block_index(const unsigned char* address, const PPARTITION_INFO partition_info, unsigned int* block_index);
+static SLINGA_ERROR convert_block_index_to_address(unsigned int block_index, const PPARTITION_INFO partition_info, unsigned char** address);
 
 // parsing saves and metadata
 static SLINGA_ERROR copy_metadata(PSAVE_METADATA metadata, const unsigned char* save, unsigned int skip_bytes);
-static SLINGA_ERROR find_save(const char* filename, const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned char skip_bytes, unsigned char** save_start);
-static SLINGA_ERROR read_save_and_metadata(const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned char skip_bytes, PSAVE_METADATA metadata, const char* filename, unsigned char* buffer, unsigned int size, unsigned int* bytes_read);
-static SLINGA_ERROR walk_partition(const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned char skip_bytes, PSAVE_METADATA saves, unsigned int num_saves, unsigned int* saves_found, unsigned int* used_blocks);
-static SLINGA_ERROR walk_partition_bitmap(unsigned char* bitmap, unsigned int bitmap_size, const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned char skip_bytes);
+static SLINGA_ERROR find_save(const char* filename, const PPARTITION_INFO partition_info, unsigned char** save_start);
+static SLINGA_ERROR read_save_and_metadata(const PPARTITION_INFO partition_info, PSAVE_METADATA metadata, const char* filename, unsigned char* buffer, unsigned int size, unsigned int* bytes_read);
+static SLINGA_ERROR walk_partition(const PPARTITION_INFO partition_info, PSAVE_METADATA saves, unsigned int num_saves, unsigned int* saves_found, unsigned int* used_blocks);
+static SLINGA_ERROR walk_partition_bitmap(unsigned char* bitmap, unsigned int bitmap_size, const PPARTITION_INFO partition_info);
 static SLINGA_ERROR metadata_to_header(const PSAVE_METADATA metadata, PSAT_START_BLOCK_HEADER header);
 
 // Read saves
-static SLINGA_ERROR read_sat_table(const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned char skip_bytes, const unsigned char* save_start, unsigned char* bitmap, unsigned int bitmap_size, unsigned int* start_block, unsigned int* start_data_block);
-static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer, unsigned int size, unsigned int* bytes_read, unsigned int start_block, unsigned int start_data_block, const unsigned char* bitmap, unsigned int bitmap_size, const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned int skip_bytes);
-static SLINGA_ERROR read_sat_table_from_block(unsigned int block_index, unsigned char* bitmap, unsigned int bitmap_size, const unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned int skip_bytes, unsigned int start_block, unsigned int* start_data_block, unsigned int* written_sat_entries);
+static SLINGA_ERROR read_sat_table(const PPARTITION_INFO partition_info, const unsigned char* save_start, unsigned char* bitmap, unsigned int bitmap_size, unsigned int* start_block, unsigned int* start_data_block);
+static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer, unsigned int size, unsigned int* bytes_read, unsigned int start_block, unsigned int start_data_block, const unsigned char* bitmap, unsigned int bitmap_size, const PPARTITION_INFO partition_info);
+static SLINGA_ERROR read_sat_table_from_block(unsigned int block_index, unsigned char* bitmap, unsigned int bitmap_size, const PPARTITION_INFO partition_info, unsigned int start_block, unsigned int* start_data_block, unsigned int* written_sat_entries);
 
 // Write saves
-static SLINGA_ERROR write_header(unsigned int save_start_block, const char* filename, unsigned int size, const PSAVE_METADATA metadata, unsigned char* partition_buf, unsigned int partition_size,  unsigned int block_size, unsigned char skip_bytes);
-static SLINGA_ERROR write_block_indexes(unsigned int save_start_block, unsigned int num_blocks, const unsigned char* bitmap, unsigned int bitmap_size, unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned char skip_bytes, unsigned int* save_data_start_block, unsigned int* save_data_start_offset);
-static SLINGA_ERROR write_data(unsigned int save_data_start_block, unsigned int save_data_start_offset, const unsigned char* data, unsigned int size, const unsigned char* bitmap, unsigned int bitmap_size, unsigned char* partition_buf, unsigned int partition_size, unsigned int block_size, unsigned char skip_bytes);
+static SLINGA_ERROR write_header(unsigned int save_start_block, const char* filename, unsigned int size, const PSAVE_METADATA metadata, const PPARTITION_INFO partition_info);
+static SLINGA_ERROR write_block_indexes(unsigned int save_start_block, unsigned int num_blocks, const unsigned char* bitmap, unsigned int bitmap_size, const PPARTITION_INFO partition_info, unsigned int* save_data_start_block, unsigned int* save_data_start_offset);
+static SLINGA_ERROR write_data(unsigned int save_data_start_block, unsigned int save_data_start_offset, const unsigned char* data, unsigned int size, const unsigned char* bitmap, unsigned int bitmap_size, const PPARTITION_INFO partition_info);
 
 // SAT bitmap helpers
-static SLINGA_ERROR get_bitmap_size(unsigned int partition_size, unsigned int block_size, unsigned int max_bitmap_size, unsigned int* bitmap_size);
+static SLINGA_ERROR get_bitmap_size(const PPARTITION_INFO partition_info, unsigned int max_bitmap_size, unsigned int* bitmap_size);
 static SLINGA_ERROR set_bitmap(unsigned int block_index, unsigned char* bitmap, unsigned int bitmap_size);
 static SLINGA_ERROR get_next_block_bitmap(unsigned int block_index, const unsigned char* bitmap, unsigned int bitmap_size, unsigned int* next_block_index);
 static SLINGA_ERROR count_bitmap(const unsigned char* bitmap, unsigned int bitmap_size, unsigned int* total);
@@ -104,17 +104,11 @@ static SLINGA_ERROR memset_partition(unsigned char* dst, unsigned int dst_offset
  *
  * @return SLINGA_SUCCESS on success
  */
-SLINGA_ERROR sat_get_used_blocks(const unsigned char* partition_buf,
-                                 unsigned int partition_size,
-                                 unsigned int block_size,
-                                 unsigned char skip_bytes,
+SLINGA_ERROR sat_get_used_blocks(const PPARTITION_INFO partition_info,
                                  unsigned int* used_blocks)
 {
     // this is just a wrapper for walk_partition()
-    return  walk_partition(partition_buf,
-                           partition_size,
-                           block_size,
-                           skip_bytes,
+    return  walk_partition(partition_info,
                            NULL,
                            0,
                            NULL,
@@ -134,19 +128,13 @@ SLINGA_ERROR sat_get_used_blocks(const unsigned char* partition_buf,
  *
  * @return SLINGA_SUCCESS on success
  */
-SLINGA_ERROR sat_list_saves(const unsigned char* partition_buf,
-                            unsigned int partition_size,
-                            unsigned int block_size,
-                            unsigned char skip_bytes,
+SLINGA_ERROR sat_list_saves(const PPARTITION_INFO partition_info,
                             PSAVE_METADATA saves,
                             unsigned int num_saves,
                             unsigned int* saves_available)
 {
     // this is just a wrapper for walk_partition()
-    return  walk_partition(partition_buf,
-                           partition_size,
-                           block_size,
-                           skip_bytes,
+    return  walk_partition(partition_info,
                            saves,
                            num_saves,
                            saves_available,
@@ -166,17 +154,11 @@ SLINGA_ERROR sat_list_saves(const unsigned char* partition_buf,
  * @return SLINGA_SUCCESS on success
  */
 SLINGA_ERROR sat_query_file(const char* filename,
-                            const unsigned char* partition_buf,
-                            unsigned int partition_size,
-                            unsigned int block_size,
-                            unsigned char skip_bytes,
+                            const PPARTITION_INFO partition_info,
                             PSAVE_METADATA metadata)
 {
     // wrapper for sat_read_save
-    return read_save_and_metadata(partition_buf,
-                                  partition_size,
-                                  block_size,
-                                  skip_bytes,
+    return read_save_and_metadata(partition_info,
                                   metadata,
                                   filename,
                                   NULL,
@@ -202,16 +184,10 @@ SLINGA_ERROR sat_read(const char* filename,
                       unsigned char* buffer,
                       unsigned int size,
                       unsigned int* bytes_read,
-                      const unsigned char* partition_buf,
-                      unsigned int partition_size,
-                      unsigned int block_size,
-                      unsigned char skip_bytes)
+                      const PPARTITION_INFO partition_info)
 {
     // wrapper for sat_read_save
-    return read_save_and_metadata(partition_buf,
-                                  partition_size,
-                                  block_size,
-                                  skip_bytes,
+    return read_save_and_metadata(partition_info,
                                   NULL,
                                   filename,
                                   buffer,
@@ -240,10 +216,7 @@ SLINGA_ERROR sat_write(FLAGS flags,
                        const PSAVE_METADATA save_metadata,
                        const unsigned char* buffer,
                        unsigned int size,
-                       unsigned char* partition_buf,
-                       unsigned int partition_size,
-                       unsigned int block_size,
-                       unsigned char skip_bytes)
+                       const PPARTITION_INFO partition_info)
 {
     UNUSED(flags); // TODO: add zero entire save option
 
@@ -261,18 +234,18 @@ SLINGA_ERROR sat_write(FLAGS flags,
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(!partition_buf || !partition_size || !block_size)
+    if(!partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // block size must be 64-byte aligned
-    if((block_size % MIN_BLOCK_SIZE) != 0)
+    if((partition_info->block_size % MIN_BLOCK_SIZE) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(skip_bytes != 0 && skip_bytes != 1)
+    if(partition_info->skip_bytes != 0 && partition_info->skip_bytes != 1)
     {
         return SLINGA_INVALID_PARAMETER;
     }
@@ -295,10 +268,7 @@ SLINGA_ERROR sat_write(FLAGS flags,
 
     // locate the save
     result = find_save(filename,
-                       partition_buf,
-                       partition_size,
-                       block_size,
-                       skip_bytes,
+                       partition_info,
                        &save_start);
     if(result == SLINGA_SUCCESS)
     {
@@ -309,7 +279,7 @@ SLINGA_ERROR sat_write(FLAGS flags,
         }
 
         // delete the save by overwriting the tag field to 0
-        result = memset_partition(save_start, 0, 0, SAT_TAG_SIZE, skip_bytes);
+        result = memset_partition(save_start, 0, 0, SAT_TAG_SIZE, partition_info->skip_bytes);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -317,14 +287,14 @@ SLINGA_ERROR sat_write(FLAGS flags,
     }
 
     // calculate how many blocks are needed for the save
-    result = calc_num_blocks(size, block_size, skip_bytes, &blocks_needed);
+    result = calc_num_blocks(size, partition_info->block_size, partition_info->skip_bytes, &blocks_needed);
     if(result != SLINGA_SUCCESS)
     {
         return result;
     }
 
     // calculate how how much of the bitmap we actually need
-    result = get_bitmap_size(partition_size, block_size, sizeof(g_SAT_bitmap), &bitmap_size);
+    result = get_bitmap_size(partition_info, sizeof(g_SAT_bitmap), &bitmap_size);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -335,10 +305,7 @@ SLINGA_ERROR sat_write(FLAGS flags,
     // record all of the busy blocks on the partition
     result = walk_partition_bitmap(g_SAT_bitmap,
                                    bitmap_size,
-                                   partition_buf,
-                                   partition_size,
-                                   block_size,
-                                   skip_bytes);
+                                   partition_info);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -382,10 +349,7 @@ SLINGA_ERROR sat_write(FLAGS flags,
                           filename,
                           size,
                           save_metadata,
-                          partition_buf,
-                          partition_size,
-                          block_size,
-                          skip_bytes);
+                          partition_info);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -396,10 +360,7 @@ SLINGA_ERROR sat_write(FLAGS flags,
                                  blocks_needed,
                                  g_SAT_bitmap,
                                  bitmap_size,
-                                 partition_buf,
-                                 partition_size,
-                                 block_size,
-                                 skip_bytes,
+                                 partition_info,
                                  &save_data_start_block,
                                  &save_data_start_offset);
     if(result != SLINGA_SUCCESS)
@@ -414,10 +375,7 @@ SLINGA_ERROR sat_write(FLAGS flags,
                         size,
                         g_SAT_bitmap,
                         bitmap_size,
-                        partition_buf,
-                        partition_size,
-                        block_size,
-                        skip_bytes);
+                        partition_info);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -440,10 +398,7 @@ SLINGA_ERROR sat_write(FLAGS flags,
  */
 SLINGA_ERROR sat_delete(const char* filename,
                         FLAGS flags,
-                        unsigned char* partition_buf,
-                        unsigned int partition_size,
-                        unsigned int block_size,
-                        unsigned char skip_bytes)
+                        const PPARTITION_INFO partition_info)
 {
     UNUSED(flags); // TODO: add zero entire save option
 
@@ -455,28 +410,25 @@ SLINGA_ERROR sat_delete(const char* filename,
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(!partition_buf || !partition_size || !block_size)
+    if(!partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // block size must be 64-byte aligned
-    if((block_size % MIN_BLOCK_SIZE) != 0)
+    if((partition_info->block_size % MIN_BLOCK_SIZE) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(skip_bytes != 0 && skip_bytes != 1)
+    if(partition_info->skip_bytes != 0 && partition_info->skip_bytes != 1)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // locate the save
     result = find_save(filename,
-                       partition_buf,
-                       partition_size,
-                       block_size,
-                       skip_bytes,
+                       partition_info,
                        &save_start);
     if(result != SLINGA_SUCCESS)
     {
@@ -484,7 +436,7 @@ SLINGA_ERROR sat_delete(const char* filename,
     }
 
     // delete the save by overwriting the tag field to 0
-    result = memset_partition(save_start, 0, 0, SAT_TAG_SIZE, skip_bytes);
+    result = memset_partition(save_start, 0, 0, SAT_TAG_SIZE, partition_info->skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -505,41 +457,38 @@ SLINGA_ERROR sat_delete(const char* filename,
  *
  * @return SLINGA_SUCCESS on success
  */
-SLINGA_ERROR sat_check_formatted(const unsigned char* partition_buf,
-                                 unsigned int partition_size,
-                                 unsigned int block_size,
-                                 unsigned char skip_bytes)
+SLINGA_ERROR sat_check_formatted(const PPARTITION_INFO partition_info)
 {
     char temp[BACKUP_RAM_FORMAT_STR_LEN] = {0};
     unsigned int num_lines = 0;
     SLINGA_ERROR result = 0;
 
-    if(!partition_buf || !partition_size || !block_size)
+    if(!partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // block size must be 64-byte aligned
-    if((block_size % MIN_BLOCK_SIZE) != 0)
+    if((partition_info->block_size % MIN_BLOCK_SIZE) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(skip_bytes != 0 && skip_bytes != 1)
+    if(partition_info->skip_bytes != 0 && partition_info->skip_bytes != 1)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // we need atleast 1 block
-    if(block_size > partition_size)
+    if(partition_info->block_size > partition_info->partition_size)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // the first block contains block_size/16 copies of the BACKUP_RAM_FORMAT string
-    num_lines = block_size / BACKUP_RAM_FORMAT_STR_LEN;
+    num_lines = partition_info->block_size / BACKUP_RAM_FORMAT_STR_LEN;
 
-    if(skip_bytes == 1)
+    if(partition_info->skip_bytes == 1)
     {
         num_lines = num_lines / 2;
     }
@@ -547,7 +496,7 @@ SLINGA_ERROR sat_check_formatted(const unsigned char* partition_buf,
     for(unsigned int i = 0; i < num_lines; i++)
     {
         // copy the data locally to avoid having to deal with skip_bytes
-        result = read_from_partition((unsigned char*)temp, partition_buf, (i * BACKUP_RAM_FORMAT_STR_LEN), BACKUP_RAM_FORMAT_STR_LEN, skip_bytes);
+        result = read_from_partition((unsigned char*)temp, partition_info->partition_buf, (i * BACKUP_RAM_FORMAT_STR_LEN), BACKUP_RAM_FORMAT_STR_LEN, partition_info->skip_bytes);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -575,39 +524,37 @@ SLINGA_ERROR sat_check_formatted(const unsigned char* partition_buf,
  *
  * @return SLINGA_SUCCESS on success
  */
-SLINGA_ERROR sat_format(unsigned char* partition_buf,
-                        unsigned int partition_size,
-                        unsigned int block_size,
-                        unsigned char skip_bytes)
+SLINGA_ERROR sat_format(const PPARTITION_INFO partition_info)
 {
     unsigned int num_lines = 0;
     SLINGA_ERROR result = 0;
 
-    if(!partition_buf || !partition_size || !block_size)
+    if(!partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // block size must be 64-byte aligned
-    if((block_size % MIN_BLOCK_SIZE) != 0)
+    if((partition_info->block_size % MIN_BLOCK_SIZE) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(skip_bytes != 0 && skip_bytes != 1)
+    if(partition_info->skip_bytes != 0 && partition_info->skip_bytes != 1)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // the first block contains block_size/16 copies of the BACKUP_RAM_FORMAT string
-    num_lines = block_size / BACKUP_RAM_FORMAT_STR_LEN;
+    num_lines = partition_info->block_size / BACKUP_RAM_FORMAT_STR_LEN;
 
-    if(skip_bytes == 1)
+    if(partition_info->skip_bytes == 1)
     {
         num_lines = num_lines / 2;
     }
 
-    result = memset_partition(partition_buf, 0, 0, partition_size/2, skip_bytes);
+    // TODO: why over /2 for size??
+    result = memset_partition(partition_info->partition_buf, 0, 0, partition_info->partition_size/2, partition_info->skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -616,7 +563,7 @@ SLINGA_ERROR sat_format(unsigned char* partition_buf,
     for(unsigned int i = 0; i < num_lines; i++)
     {
         // copy the data locally to avoid having to deal with skip_bytes
-        result = write_to_partition(partition_buf, (i * BACKUP_RAM_FORMAT_STR_LEN), (const unsigned char*)BACKUP_RAM_FORMAT_STR, BACKUP_RAM_FORMAT_STR_LEN, skip_bytes);
+        result = write_to_partition(partition_info->partition_buf, (i * BACKUP_RAM_FORMAT_STR_LEN), (const unsigned char*)BACKUP_RAM_FORMAT_STR, BACKUP_RAM_FORMAT_STR_LEN, partition_info->skip_bytes);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -720,33 +667,28 @@ static SLINGA_ERROR calc_num_blocks(unsigned int save_size, unsigned int block_s
  * @return SLINGA_SUCCESS on success
  */
 static SLINGA_ERROR convert_address_to_block_index(const unsigned char* address,
-                                                   const unsigned char* partition_buf,
-                                                   unsigned int partition_size,
-                                                   unsigned int block_size,
-                                                   unsigned int skip_bytes,
+                                                   const PPARTITION_INFO partition_info,
                                                    unsigned int* block_index)
 {
     unsigned int index = 0;
 
-    UNUSED(skip_bytes);
-
-    if(!address || !partition_buf || !partition_size || !block_size)
+    if(!address || !partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(address < partition_buf)
+    if(address < partition_info->partition_buf)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(address >= partition_buf + partition_size)
+    if(address >= partition_info->partition_buf + partition_info->partition_size)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // index is just the number of blocks from the start of the partition
-    index = (address - partition_buf)/block_size;
+    index = (address - partition_info->partition_buf)/partition_info->block_size;
 
     *block_index = index;
     return SLINGA_SUCCESS;
@@ -765,31 +707,28 @@ static SLINGA_ERROR convert_address_to_block_index(const unsigned char* address,
  * @return SLINGA_SUCCESS on success
  */
 static SLINGA_ERROR convert_block_index_to_address(unsigned int block_index,
-                                                   const unsigned char* partition_buf,
-                                                   unsigned int partition_size,
-                                                   unsigned int block_size,
-                                                   unsigned int skip_bytes,
+                                                   const PPARTITION_INFO partition_info,
                                                    unsigned char** address)
 {
-    if(!address || !partition_buf || !partition_size || !block_size)
+    if(!address || !partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(skip_bytes != 0 && skip_bytes != 1)
+    if(partition_info->skip_bytes != 0 && partition_info->skip_bytes != 1)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // index is just the number of blocks from the start of the partition
-    *address = (unsigned char*)(partition_buf + (block_index * block_size));
+    *address = (unsigned char*)(partition_info->partition_buf + (block_index * partition_info->block_size));
 
-    if(*address < partition_buf)
+    if(*address < partition_info->partition_buf)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(*address >= partition_buf + partition_size)
+    if(*address >= partition_info->partition_buf + partition_info->partition_size)
     {
         return SLINGA_INVALID_PARAMETER;
     }
@@ -890,33 +829,30 @@ static SLINGA_ERROR metadata_to_header(const PSAVE_METADATA metadata, PSAT_START
  * @return SLINGA_SUCCESS on success
  */
 static SLINGA_ERROR find_save(const char* filename,
-                              const unsigned char* partition_buf,
-                              unsigned int partition_size,
-                              unsigned int block_size,
-                              unsigned char skip_bytes,
+                              const PPARTITION_INFO partition_info,
                               unsigned char** save_start)
 {
     SAT_START_BLOCK_HEADER metadata = {0};
     SLINGA_ERROR result = 0;
 
-    if(!filename || !partition_buf || !partition_size || !block_size || !save_start)
+    if(!filename || !partition_info || !save_start)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // loop through all blocks on the partition
     // the first two blocks are not used for saves
-    for(unsigned int i = (2 * block_size); i < partition_size; i += block_size)
+    for(unsigned int i = (2 * partition_info->block_size); i < partition_info->partition_size; i += partition_info->block_size)
     {
-        const unsigned char* current_block = (partition_buf + i);
+        const unsigned char* current_block = (partition_info->partition_buf + i);
 
         // validate range
-        if(current_block < partition_buf || current_block >= partition_buf + partition_size)
+        if(current_block < partition_info->partition_buf || current_block >= partition_info->partition_buf + partition_info->partition_size)
         {
             return SLINGA_INVALID_PARAMETER;
         }
 
-        result = read_from_partition((unsigned char*)&metadata, current_block, 0, sizeof(SAT_START_BLOCK_HEADER), skip_bytes);
+        result = read_from_partition((unsigned char*)&metadata, current_block, 0, sizeof(SAT_START_BLOCK_HEADER), partition_info->skip_bytes);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -953,10 +889,7 @@ static SLINGA_ERROR find_save(const char* filename,
  *
  * @return SLINGA_SUCCESS on success
  */
-static SLINGA_ERROR read_save_and_metadata(const unsigned char* partition_buf,
-                                           unsigned int partition_size,
-                                           unsigned int block_size,
-                                           unsigned char skip_bytes,
+static SLINGA_ERROR read_save_and_metadata(const PPARTITION_INFO partition_info,
                                            PSAVE_METADATA metadata,
                                            const char* filename,
                                            unsigned char* buffer,
@@ -968,17 +901,14 @@ static SLINGA_ERROR read_save_and_metadata(const unsigned char* partition_buf,
     SLINGA_ERROR result = 0;
 
     result = find_save(filename,
-                       partition_buf,
-                       partition_size,
-                       block_size,
-                       skip_bytes,
+                       partition_info,
                        &save_start);
     if(result != SLINGA_SUCCESS)
     {
         return result;
     }
 
-    result = read_from_partition((unsigned char*)&save_header, save_start, 0, sizeof(SAT_START_BLOCK_HEADER), skip_bytes);
+    result = read_from_partition((unsigned char*)&save_header, save_start, 0, sizeof(SAT_START_BLOCK_HEADER), partition_info->skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -1000,7 +930,7 @@ static SLINGA_ERROR read_save_and_metadata(const unsigned char* partition_buf,
         }
 
         // calculate how how much of the bitmap we actually need
-        result = get_bitmap_size(partition_size, block_size, sizeof(g_SAT_bitmap), &bitmap_size);
+        result = get_bitmap_size(partition_info, sizeof(g_SAT_bitmap), &bitmap_size);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -1009,10 +939,7 @@ static SLINGA_ERROR read_save_and_metadata(const unsigned char* partition_buf,
         // zero out the bitmap to begin
         memset(g_SAT_bitmap, 0, bitmap_size);
 
-        result = read_sat_table(partition_buf,
-                                partition_size,
-                                block_size,
-                                skip_bytes,
+        result = read_sat_table(partition_info,
                                 save_start,
                                 g_SAT_bitmap,
                                 bitmap_size,
@@ -1030,10 +957,7 @@ static SLINGA_ERROR read_save_and_metadata(const unsigned char* partition_buf,
                                           start_data_block,
                                           g_SAT_bitmap,
                                           bitmap_size,
-                                          partition_buf,
-                                          partition_size,
-                                          block_size,
-                                          skip_bytes);
+                                          partition_info);
         if(result != 0)
         {
             return result;
@@ -1042,7 +966,7 @@ static SLINGA_ERROR read_save_and_metadata(const unsigned char* partition_buf,
 
     if(metadata)
     {
-        result = copy_metadata(metadata, save_start, skip_bytes);
+        result = copy_metadata(metadata, save_start, partition_info->skip_bytes);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -1066,10 +990,7 @@ static SLINGA_ERROR read_save_and_metadata(const unsigned char* partition_buf,
  *
  * @return SLINGA_SUCCESS on success
  */
-static SLINGA_ERROR walk_partition(const unsigned char* partition_buf,
-                                   unsigned int partition_size,
-                                   unsigned int block_size,
-                                   unsigned char skip_bytes,
+static SLINGA_ERROR walk_partition(const PPARTITION_INFO partition_info,
                                    PSAVE_METADATA saves,
                                    unsigned int num_saves,
                                    unsigned int* saves_available,
@@ -1082,29 +1003,29 @@ static SLINGA_ERROR walk_partition(const unsigned char* partition_buf,
     unsigned int save_blocks = 0;
     SLINGA_ERROR result = 0;
 
-    if(!partition_buf || !partition_size || !block_size)
+    if(!partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(block_size > partition_size || (partition_size % block_size) != 0)
+    if(partition_info->block_size > partition_info->partition_size || (partition_info->partition_size % partition_info->block_size) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // loop through all blocks onthe parititon
     // the first two blocks are not used for saves
-    for(unsigned int i = (2 * block_size); i < partition_size; i += block_size)
+    for(unsigned int i = (2 * partition_info->block_size); i < partition_info->partition_size; i += partition_info->block_size)
     {
-        current_block = partition_buf + i;
+        current_block = partition_info->partition_buf + i;
 
         // validate range
-        if(current_block < partition_buf || current_block >= partition_buf + partition_size)
+        if(current_block < partition_info->partition_buf || current_block >= partition_info->partition_buf + partition_info->partition_size)
         {
             return SLINGA_SAT_INVALID_PARTITION;
         }
 
-        result = read_from_partition((unsigned char*)&metadata, current_block, 0, sizeof(SAT_START_BLOCK_HEADER), skip_bytes);
+        result = read_from_partition((unsigned char*)&metadata, current_block, 0, sizeof(SAT_START_BLOCK_HEADER), partition_info->skip_bytes);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -1113,7 +1034,7 @@ static SLINGA_ERROR walk_partition(const unsigned char* partition_buf,
         // every save starts with a tag
         if(metadata.tag == SAT_START_BLOCK_TAG)
         {
-            result = calc_num_blocks(metadata.data_size, block_size, skip_bytes, &save_blocks);
+            result = calc_num_blocks(metadata.data_size, partition_info->block_size, partition_info->skip_bytes, &save_blocks);
             if(result != SLINGA_SUCCESS)
             {
                 return SLINGA_SAT_INVALID_PARTITION;
@@ -1132,7 +1053,7 @@ static SLINGA_ERROR walk_partition(const unsigned char* partition_buf,
                 }
 
                 // copy off the metadata
-                result = copy_metadata(&saves[saves_found], current_block, skip_bytes);
+                result = copy_metadata(&saves[saves_found], current_block, partition_info->skip_bytes);
                 if(result)
                 {
                     return result;
@@ -1170,10 +1091,7 @@ static SLINGA_ERROR walk_partition(const unsigned char* partition_buf,
  */
 static SLINGA_ERROR walk_partition_bitmap(unsigned char* bitmap,
                                           unsigned int bitmap_size,
-                                          const unsigned char* partition_buf,
-                                          unsigned int partition_size,
-                                          unsigned int block_size,
-                                          unsigned char skip_bytes)
+                                          const PPARTITION_INFO partition_info)
 {
     unsigned int tag = 0;
     const unsigned char* current_block = NULL;
@@ -1184,12 +1102,12 @@ static SLINGA_ERROR walk_partition_bitmap(unsigned char* bitmap,
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(!partition_buf || !partition_size || !block_size)
+    if(!partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(block_size > partition_size || (partition_size % block_size) != 0)
+    if(partition_info->block_size > partition_info->partition_size || (partition_info->partition_size % partition_info->block_size) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
@@ -1210,17 +1128,17 @@ static SLINGA_ERROR walk_partition_bitmap(unsigned char* bitmap,
 
     // loop through all blocks onthe parititon
     // the first two blocks are not used for saves
-    for(unsigned int i = (2 * block_size); i < partition_size; i += block_size)
+    for(unsigned int i = (2 * partition_info->block_size); i < partition_info->partition_size; i += partition_info->block_size)
     {
-        current_block = partition_buf + i;
+        current_block = partition_info->partition_buf + i;
 
         // validate range
-        if(current_block < partition_buf || current_block >= partition_buf + partition_size)
+        if(current_block < partition_info->partition_buf || current_block >= partition_info->partition_buf + partition_info->partition_size)
         {
             return SLINGA_SAT_INVALID_PARTITION;
         }
 
-        result = read_from_partition((unsigned char*)&tag, current_block, 0, SAT_TAG_SIZE, skip_bytes);
+        result = read_from_partition((unsigned char*)&tag, current_block, 0, SAT_TAG_SIZE, partition_info->skip_bytes);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -1232,10 +1150,7 @@ static SLINGA_ERROR walk_partition_bitmap(unsigned char* bitmap,
             unsigned int start_block = 0;
             unsigned int start_data_block = 0;
 
-            result = read_sat_table(partition_buf,
-                                    partition_size,
-                                    block_size,
-                                    skip_bytes,
+            result = read_sat_table(partition_info,
                                     current_block,
                                     bitmap,
                                     bitmap_size,
@@ -1270,10 +1185,7 @@ static SLINGA_ERROR walk_partition_bitmap(unsigned char* bitmap,
  *
  * @return SLINGA_SUCCESS on success
  */
-static SLINGA_ERROR read_sat_table(const unsigned char* partition_buf,
-                                   unsigned int partition_size,
-                                   unsigned int block_size,
-                                   unsigned char skip_bytes,
+static SLINGA_ERROR read_sat_table(const PPARTITION_INFO partition_info,
                                    const unsigned char* save_start,
                                    unsigned char* bitmap,
                                    unsigned int bitmap_size,
@@ -1286,30 +1198,30 @@ static SLINGA_ERROR read_sat_table(const unsigned char* partition_buf,
     SAT_START_BLOCK_HEADER save_header = {0};
     int result = 0;
 
-    if(!partition_buf || !partition_size || !block_size || !save_start || !bitmap || !bitmap_size || !start_block || !start_data_block)
+    if(!partition_info || !save_start || !bitmap || !bitmap_size || !start_block || !start_data_block)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // block size must be 64-byte aligned
-    if((block_size % MIN_BLOCK_SIZE) != 0)
+    if((partition_info->block_size % MIN_BLOCK_SIZE) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if((partition_size % block_size) != 0)
+    if((partition_info->partition_size % partition_info->block_size) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // copy the data locally to avoid having to deal with skip_bytes
-    result = read_from_partition((unsigned char*)&save_header, save_start, 0, sizeof(SAT_START_BLOCK_HEADER), skip_bytes);
+    result = read_from_partition((unsigned char*)&save_header, save_start, 0, sizeof(SAT_START_BLOCK_HEADER), partition_info->skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         return result;
     }
 
-    result = calc_num_blocks(save_header.data_size, block_size, skip_bytes, &num_sat_blocks);
+    result = calc_num_blocks(save_header.data_size, partition_info->block_size, partition_info->skip_bytes, &num_sat_blocks);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -1321,7 +1233,7 @@ static SLINGA_ERROR read_sat_table(const unsigned char* partition_buf,
         return SLINGA_SAT_SAVE_OUT_OF_RANGE;
     }
 
-    result = convert_address_to_block_index(save_start, partition_buf, partition_size, block_size, skip_bytes, start_block);
+    result = convert_address_to_block_index(save_start, partition_info, start_block);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -1367,7 +1279,7 @@ static SLINGA_ERROR read_sat_table(const unsigned char* partition_buf,
         }
 
         // read SAT table entries from this block
-        result = read_sat_table_from_block(cur_sat_block, bitmap, bitmap_size, partition_buf, partition_size, block_size, skip_bytes, *start_block, start_data_block, &written_sat_entries);
+        result = read_sat_table_from_block(cur_sat_block, bitmap, bitmap_size, partition_info, *start_block, start_data_block, &written_sat_entries);
         if(result == SLINGA_SUCCESS && result != SLINGA_MORE_DATA_AVAILABLE)
         {
             return result;
@@ -1427,10 +1339,7 @@ static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer,
                                              unsigned int start_data_block,
                                              const unsigned char* bitmap,
                                              unsigned int bitmap_size,
-                                             const unsigned char* partition_buf,
-                                             unsigned int partition_size,
-                                             unsigned int block_size,
-                                             unsigned int skip_bytes)
+                                             const PPARTITION_INFO partition_info)
 {
 
     unsigned int cur_sat_block = 0;
@@ -1440,20 +1349,20 @@ static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer,
     unsigned int bytes_to_copy = 0;
     SLINGA_ERROR result = 0;
 
-    if(!buffer || !size || !start_block || !start_data_block || !bitmap || !bitmap_size || !partition_buf || !partition_size || !block_size)
+    if(!buffer || !size || !start_block || !start_data_block || !bitmap || !bitmap_size || !partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(skip_bytes == 0)
+    if(partition_info->skip_bytes == 0)
     {
         // all bytes are valid, just subtract off the tag size
-        block_data_size = block_size - SAT_TAG_SIZE;
+        block_data_size = partition_info->block_size - SAT_TAG_SIZE;
     }
-    else if(skip_bytes == 1)
+    else if(partition_info->skip_bytes == 1)
     {
         // every other byte is valid
-        block_data_size = (block_size/2) - SAT_TAG_SIZE;
+        block_data_size = (partition_info->block_size/2) - SAT_TAG_SIZE;
     }
     else
     {
@@ -1467,14 +1376,14 @@ static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer,
     // loop throught the bitmap until we are out of blocks
     while(1)
     {
-        result = convert_block_index_to_address(cur_sat_block, partition_buf, partition_size, block_size, skip_bytes, &block);
+        result = convert_block_index_to_address(cur_sat_block, partition_info, &block);
         if(result != SLINGA_SUCCESS)
         {
             return result;
         }
 
         // validate we are still in range
-        if(block < partition_buf || block >= partition_buf + partition_size)
+        if(block < partition_info->partition_buf || block >= partition_info->partition_buf + partition_info->partition_size)
         {
             return SLINGA_SAT_INVALID_PARTITION;
         }
@@ -1494,7 +1403,7 @@ static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer,
             }
 
             // copy the save bytes
-            result = read_from_partition(buffer + bytes_written, block, SAT_TAG_SIZE, bytes_to_copy, skip_bytes);
+            result = read_from_partition(buffer + bytes_written, block, SAT_TAG_SIZE, bytes_to_copy, partition_info->skip_bytes);
             if(result != SLINGA_SUCCESS)
             {
                 return result;
@@ -1523,7 +1432,7 @@ static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer,
             {
                 unsigned short index = 0;
 
-                result = read_from_partition((unsigned char*)&index, block, i + SAT_TAG_SIZE, sizeof(unsigned short), skip_bytes);
+                result = read_from_partition((unsigned char*)&index, block, i + SAT_TAG_SIZE, sizeof(unsigned short), partition_info->skip_bytes);
                 if(result != SLINGA_SUCCESS)
                 {
                     return result;
@@ -1549,7 +1458,7 @@ static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer,
                     break;
                 }
 
-                result = convert_block_index_to_address(cur_sat_block, partition_buf, partition_size, block_size, skip_bytes, &block);
+                result = convert_block_index_to_address(cur_sat_block, partition_info, &block);
                 if(result != SLINGA_SUCCESS)
                 {
                     return result;
@@ -1579,7 +1488,7 @@ static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer,
                 return SLINGA_SAT_INVALID_SIZE;
             }
 
-            result = read_from_partition(buffer + bytes_written, block, offset + SAT_TAG_SIZE, bytes_to_copy, skip_bytes);
+            result = read_from_partition(buffer + bytes_written, block, offset + SAT_TAG_SIZE, bytes_to_copy, partition_info->skip_bytes);
             if(result != SLINGA_SUCCESS)
             {
                 return result;
@@ -1633,10 +1542,7 @@ static SLINGA_ERROR read_save_from_sat_table(unsigned char* buffer,
 static SLINGA_ERROR read_sat_table_from_block(unsigned int block_index,
                                             unsigned char* bitmap,
                                             unsigned int bitmap_size,
-                                            const unsigned char* partition_buf,
-                                            unsigned int partition_size,
-                                            unsigned int block_size,
-                                            unsigned int skip_bytes,
+                                            const PPARTITION_INFO partition_info,
                                             unsigned int start_block,
                                             unsigned int* start_data_block,
                                             unsigned int* written_sat_entries)
@@ -1645,37 +1551,38 @@ static SLINGA_ERROR read_sat_table_from_block(unsigned int block_index,
     SAT_START_BLOCK_HEADER save_start = {0};
     unsigned char* save_start_block = NULL;
     SLINGA_ERROR result = 0;
+    unsigned int adjusted_block_size = 0;
 
-    if(!block_index || !bitmap || !bitmap_size || !partition_buf || !partition_size || !block_size || !start_block || !start_data_block || !written_sat_entries)
+    if(!block_index || !bitmap || !bitmap_size || !partition_info || !start_block || !start_data_block || !written_sat_entries)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
     // block size must be 64-byte aligned
-    if((block_size % MIN_BLOCK_SIZE) != 0)
+    if((partition_info->block_size % MIN_BLOCK_SIZE) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if((partition_size % block_size) != 0)
+    if((partition_info->partition_size % partition_info->block_size) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    result = convert_block_index_to_address(block_index, partition_buf, partition_size, block_size, skip_bytes, &save_start_block);
+    result = convert_block_index_to_address(block_index, partition_info, &save_start_block);
     if(result != SLINGA_SUCCESS)
     {
         return result;
     }
 
     // validate we are still in range
-    if(save_start_block < partition_buf || save_start_block >= partition_buf + partition_size)
+    if(save_start_block < partition_info->partition_buf || save_start_block >= partition_info->partition_buf + partition_info->partition_size)
     {
         return SLINGA_SAT_INVALID_PARTITION;
     }
 
     // copy the data locally to avoid having to deal with skip_bytes
-    result = read_from_partition((unsigned char*)&save_start, save_start_block, 0, sizeof(SAT_START_BLOCK_HEADER), skip_bytes);
+    result = read_from_partition((unsigned char*)&save_start, save_start_block, 0, sizeof(SAT_START_BLOCK_HEADER), partition_info->skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -1710,22 +1617,26 @@ static SLINGA_ERROR read_sat_table_from_block(unsigned int block_index,
     // loop through the block, recording SAT table entries until you find the
     // 0x0000 terminator or reach the end of the block
 
-    if(skip_bytes == 1)
+    if(partition_info->skip_bytes == 1)
     {
         // every other byte is valid
-        block_size = block_size/2;
+        adjusted_block_size = partition_info->block_size/2;
+    }
+    else
+    {
+        adjusted_block_size = partition_info->block_size;
     }
 
     // look throught the block recording all the block indexes
     // we terminate if:
     // - we reach the end of the block
     // - we encounter a 0x0000
-    for(; start_byte < block_size; start_byte += sizeof(unsigned short))
+    for(; start_byte < adjusted_block_size; start_byte += sizeof(unsigned short))
     {
         unsigned short index = 0;
 
         // copy the data locally to avoid having to deal with skip_bytes
-        result = read_from_partition((unsigned char*)&index, save_start_block, start_byte, sizeof(unsigned short), skip_bytes);
+        result = read_from_partition((unsigned char*)&index, save_start_block, start_byte, sizeof(unsigned short), partition_info->skip_bytes);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -1781,10 +1692,7 @@ static SLINGA_ERROR write_header(unsigned int save_start_block,
                                  const char* filename,
                                  unsigned int size,
                                  const PSAVE_METADATA metadata,
-                                 unsigned char* partition_buf,
-                                 unsigned int partition_size,
-                                 unsigned int block_size,
-                                 unsigned char skip_bytes)
+                                 const PPARTITION_INFO partition_info)
 {
     SAT_START_BLOCK_HEADER header = {0};
     unsigned char* save_start = NULL;
@@ -1795,7 +1703,7 @@ static SLINGA_ERROR write_header(unsigned int save_start_block,
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(!partition_buf || !partition_size || !block_size)
+    if(!partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
@@ -1810,10 +1718,7 @@ static SLINGA_ERROR write_header(unsigned int save_start_block,
 
     // convert the block index to an address
     result = convert_block_index_to_address(save_start_block,
-                                            partition_buf,
-                                            partition_size,
-                                            block_size,
-                                            skip_bytes,
+                                            partition_info,
                                             &save_start);
     if(result != SLINGA_SUCCESS)
     {
@@ -1821,7 +1726,7 @@ static SLINGA_ERROR write_header(unsigned int save_start_block,
     }
 
     // write the header
-    result = write_to_partition(save_start, 0, (const unsigned char*)&header, sizeof(header), skip_bytes);
+    result = write_to_partition(save_start, 0, (const unsigned char*)&header, sizeof(header), partition_info->skip_bytes);
     if(result != SLINGA_SUCCESS)
     {
         return result;
@@ -1849,10 +1754,7 @@ static SLINGA_ERROR write_block_indexes(unsigned int save_start_block,
                                         unsigned int num_blocks,
                                         const unsigned char* bitmap,
                                         unsigned int bitmap_size,
-                                        unsigned char* partition_buf,
-                                        unsigned int partition_size,
-                                        unsigned int block_size,
-                                        unsigned char skip_bytes,
+                                        const PPARTITION_INFO partition_info,
                                         unsigned int* save_data_start_block,
                                         unsigned int* save_data_start_offset)
 {
@@ -1869,7 +1771,7 @@ static SLINGA_ERROR write_block_indexes(unsigned int save_start_block,
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(!partition_buf || !partition_size || !block_size)
+    if(!partition_info)
     {
         return SLINGA_INVALID_PARAMETER;
     }
@@ -1885,14 +1787,14 @@ static SLINGA_ERROR write_block_indexes(unsigned int save_start_block,
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(skip_bytes == 1)
+    if(partition_info->skip_bytes == 1)
     {
         // if skip_bytes, only have the block size is valid
-        adjusted_block_size = block_size / 2;
+        adjusted_block_size = partition_info->block_size / 2;
     }
     else
     {
-        adjusted_block_size = block_size;
+        adjusted_block_size = partition_info->block_size;
     }
 
     cur_block_index = save_start_block;
@@ -1903,7 +1805,7 @@ static SLINGA_ERROR write_block_indexes(unsigned int save_start_block,
     {
         offset = 0;
 
-        result = convert_block_index_to_address(cur_block_index, partition_buf, partition_size, block_size, skip_bytes, &cur_block_address);
+        result = convert_block_index_to_address(cur_block_index, partition_info, &cur_block_address);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -1920,7 +1822,7 @@ static SLINGA_ERROR write_block_indexes(unsigned int save_start_block,
             offset = SAT_TAG_SIZE;
 
             // continuation tags are 0x00000000
-            result = memset_partition(cur_block_address, 0, 0, SAT_TAG_SIZE, skip_bytes);
+            result = memset_partition(cur_block_address, 0, 0, SAT_TAG_SIZE, partition_info->skip_bytes);
             if(result != SLINGA_SUCCESS)
             {
                 return result;
@@ -1954,7 +1856,7 @@ static SLINGA_ERROR write_block_indexes(unsigned int save_start_block,
             }
 
             // we have the index, write it
-            result = write_to_partition(cur_block_address, offset, (unsigned char*)&index, sizeof(unsigned short), skip_bytes);
+            result = write_to_partition(cur_block_address, offset, (unsigned char*)&index, sizeof(unsigned short), partition_info->skip_bytes);
             if(result != SLINGA_SUCCESS)
             {
                 return result;
@@ -2021,10 +1923,7 @@ static SLINGA_ERROR write_data(unsigned int save_data_start_block,
                                unsigned int size,
                                const unsigned char* bitmap,
                                unsigned int bitmap_size,
-                               unsigned char* partition_buf,
-                               unsigned int partition_size,
-                               unsigned int block_size,
-                               unsigned char skip_bytes)
+                               const PPARTITION_INFO partition_info)
 {
     unsigned int cur_block_index = 0;
     unsigned int bytes_written = 0;
@@ -2044,7 +1943,7 @@ static SLINGA_ERROR write_data(unsigned int save_data_start_block,
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(!partition_buf || !partition_size || !block_size)
+    if(!partition_info->partition_buf || !partition_info->partition_size || !partition_info->block_size)
     {
         return SLINGA_INVALID_PARAMETER;
     }
@@ -2054,14 +1953,14 @@ static SLINGA_ERROR write_data(unsigned int save_data_start_block,
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if(skip_bytes == 1)
+    if(partition_info->skip_bytes == 1)
     {
         // if skip_bytes, only have the block size is valid
-        adjusted_block_size = block_size / 2;
+        adjusted_block_size = partition_info->block_size / 2;
     }
     else
     {
-        adjusted_block_size = block_size;
+        adjusted_block_size = partition_info->block_size;
     }
 
     cur_block_index = save_data_start_block;
@@ -2071,7 +1970,7 @@ static SLINGA_ERROR write_data(unsigned int save_data_start_block,
         unsigned int bytes_to_write = 0;
         offset = 0;
 
-        result = convert_block_index_to_address(cur_block_index, partition_buf, partition_size, block_size, skip_bytes, &cur_block_address);
+        result = convert_block_index_to_address(cur_block_index,partition_info, &cur_block_address);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -2091,7 +1990,7 @@ static SLINGA_ERROR write_data(unsigned int save_data_start_block,
         bytes_left = size - bytes_written;
         bytes_to_write = LIBSLINGA_MIN(adjusted_block_size - offset, bytes_left);
 
-        result = write_to_partition(cur_block_address, offset, data + bytes_written, bytes_to_write, skip_bytes);
+        result = write_to_partition(cur_block_address, offset, data + bytes_written, bytes_to_write, partition_info->skip_bytes);
         if(result != SLINGA_SUCCESS)
         {
             return result;
@@ -2127,24 +2026,24 @@ static SLINGA_ERROR write_data(unsigned int save_data_start_block,
  *
  * @return SLINGA_SUCCESS on success
  */
-static SLINGA_ERROR get_bitmap_size(unsigned int partition_size, unsigned int block_size, unsigned int max_bitmap_size, unsigned int* bitmap_size)
+static SLINGA_ERROR get_bitmap_size(const PPARTITION_INFO partition_info, unsigned int max_bitmap_size, unsigned int* bitmap_size)
 {
-    if(!partition_size || !block_size || !max_bitmap_size || !bitmap_size)
+    if(!partition_info || !max_bitmap_size || !bitmap_size)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if((block_size % 8) != 0)
+    if((partition_info->block_size % 8) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    if((partition_size % block_size) != 0)
+    if((partition_info->partition_size % partition_info->block_size) != 0)
     {
         return SLINGA_INVALID_PARAMETER;
     }
 
-    *bitmap_size = (partition_size / block_size) / 8;
+    *bitmap_size = (partition_info->partition_size / partition_info->block_size) / 8;
 
     return SLINGA_SUCCESS;
 }

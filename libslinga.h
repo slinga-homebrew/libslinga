@@ -113,6 +113,16 @@ typedef enum
 
 } FLAGS;
 
+/** @brief Save partition info */
+typedef struct _PARTITION_INFO
+{
+    unsigned char* partition_buf;
+    unsigned int partition_size;
+    unsigned int block_size;
+    unsigned int skip_bytes;
+
+} PARTITION_INFO, *PPARTITION_INFO;
+
 /** @brief State of library */
 typedef struct _LIBSLINGA_CONTEXT
 {
